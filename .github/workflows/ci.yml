@@ -39,5 +39,5 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet run --project tests/LocalStore.Tests.csproj -c Release
-      - run: dotnet build windows/DayFlow.Widget.csproj -c Release
-      - run: dotnet build windows/Updater/DayFlow.Updater.csproj -c Release
+      - run: dotnet build windows/PlanAloud.Widget.csproj -c Release
+      - run: dotnet build windows/Updater/PlanAloud.Updater.csproj -c Release

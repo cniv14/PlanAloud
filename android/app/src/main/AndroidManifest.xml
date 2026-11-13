@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-    <permission android:name="app.dayflow.permission.INTERNAL" android:protectionLevel="signature" /><uses-permission android:name="app.dayflow.permission.INTERNAL" />
+    <permission android:name="app.planaloud.permission.INTERNAL" android:protectionLevel="signature" /><uses-permission android:name="app.planaloud.permission.INTERNAL" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
@@ -12,12 +12,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <queries><intent><action android:name="app.dayflow.action.EXTENSION" /></intent><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
-    <application android:name=".DayFlowApp" android:appComponentFactory="app.dayflow.ModuleFactory" tools:replace="android:appComponentFactory" android:label="日栖 DayFlow" android:theme="@style/Theme.DayFlow"
+    <queries><intent><action android:name="app.planaloud.action.EXTENSION" /></intent><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
+    <application android:name=".DayFlowApp" android:appComponentFactory="app.planaloud.ModuleFactory" tools:replace="android:appComponentFactory" android:label="@string/app_name" android:theme="@style/Theme.DayFlow"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:supportsRtl="true"
         android:usesCleartextTraffic="true">
         <activity android:name=".MainActivity" android:launchMode="singleTop" android:exported="true" android:windowSoftInputMode="adjustResize">
-            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
             <intent-filter><action android:name="android.intent.action.SEND" /><category android:name="android.intent.category.DEFAULT" /><data android:mimeType="text/plain" /></intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" /><action android:name="android.intent.action.EDIT" />
@@ -36,19 +35,70 @@
                 <data android:mimeType="text/markdown" /><data android:mimeType="text/x-markdown" />
             </intent-filter>
         </activity>
-        <provider android:name=".PluginProvider" android:authorities="app.dayflow.api" android:exported="true" android:permission="app.dayflow.permission.INTERNAL" />
+        <activity-alias android:name=".Launcher_DEEPSEEK" android:targetActivity=".MainActivity"
+            android:enabled="true" android:exported="true" android:icon="@mipmap/ic_launcher">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_CLAUDE" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_claude">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_GEMINI" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_gemini">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_QWEN" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_qwen">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_SEED" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_seed">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_KIMI" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_kimi">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_GLM" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_glm">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_GROK" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_grok">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_MINIMAX" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_minimax">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_LLAMA" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_llama">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_COPILOT" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_copilot">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".Launcher_GPT" android:targetActivity=".MainActivity"
+            android:enabled="false" android:exported="true" android:icon="@mipmap/ic_launcher_gpt">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <provider android:name=".CommandProvider" android:authorities="app.planaloud.commands" android:exported="true" android:permission="android.permission.DUMP" />
+        <provider android:name=".PluginProvider" android:authorities="app.planaloud.api" android:exported="true" android:permission="app.planaloud.permission.INTERNAL" />
         <receiver android:name=".FocusTimer" android:exported="false" />
-        <provider android:name="androidx.core.content.FileProvider" android:authorities="app.dayflow.files" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_images" /></provider>
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="app.planaloud.files" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_images" /></provider>
         <receiver android:name=".SmsCapture" android:permission="android.permission.BROADCAST_SMS" android:exported="true"><intent-filter><action android:name="android.provider.Telephony.SMS_RECEIVED" /></intent-filter></receiver>
-        <service android:name=".CaptureService" android:label="日栖通知收集（QQ / 微信）"
+        <service android:name=".CaptureService" android:label="序言通知收集（QQ / 微信）"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
             <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
         </service>
-        <service android:name=".QuickTile" android:label="日栖 · 快速记录" android:icon="@drawable/ic_notification"
+        <service android:name=".QuickTile" android:label="序言 · 快速记录" android:icon="@drawable/ic_notification"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true">
             <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
         </service>
-        <receiver android:name=".AgendaWidget" android:label="日栖 · 近期日程" android:exported="false">
+        <activity android:name=".WidgetActionActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+        <service android:name=".AgendaCollection" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS"/>
+        <receiver android:name=".AgendaWidget" android:label="序言 · 近期日程" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/agenda_widget" />
         </receiver>

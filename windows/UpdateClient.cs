@@ -2,9 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json.Nodes;
-using DayFlow.Updating;
+using PlanAloud.Updating;
 
-namespace DayFlow.Widget;
+namespace PlanAloud.Widget;
 
 public static class UpdateClient
 {
@@ -13,7 +13,7 @@ public static class UpdateClient
     {
         for(int i=0;i<6;i++)
         {
-            UpdateFeed.ValidateUrl(url);using var request=new HttpRequestMessage(HttpMethod.Get,url);request.Headers.UserAgent.ParseAdd("DayFlow/0.1");
+            UpdateFeed.ValidateUrl(url);using var request=new HttpRequestMessage(HttpMethod.Get,url);request.Headers.UserAgent.ParseAdd("PlanAloud/0.3");
             var response=await Client.SendAsync(request,HttpCompletionOption.ResponseHeadersRead);
             if((int)response.StatusCode>=300&&(int)response.StatusCode<400){var next=new Uri(new Uri(url),response.Headers.Location??throw new Exception("无效更新跳转")).ToString();response.Dispose();if(url.StartsWith("https:")&&!next.StartsWith("https:"))throw new Exception("更新地址不允许降级 HTTP");url=next;continue;}
             if(!response.IsSuccessStatusCode){int status=(int)response.StatusCode;response.Dispose();throw new Exception(status==404?"尚未发布更新清单":"更新服务 HTTP "+status);}return response;
@@ -35,8 +35,8 @@ public static class UpdateClient
             byte[] buffer=new byte[32768];long size=0;int n;while((n=await input.ReadAsync(buffer))!=0){size+=n;if(size>info["size"]!.GetValue<long>())throw new Exception("更新包长度不符");await output.WriteAsync(buffer.AsMemory(0,n));}
         }
         UpdateFeed.CheckFile(zip,info);await File.WriteAllTextAsync(manifest,envelope);
-        foreach(string name in new[]{"DayFlow.Updater.exe","DayFlow.Updater.dll","DayFlow.Updater.deps.json","DayFlow.Updater.runtimeconfig.json"})File.Copy(Path.Combine(AppContext.BaseDirectory,name),Path.Combine(folder,name));
-        var start=new ProcessStartInfo(Path.Combine(folder,"DayFlow.Updater.exe")){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=folder};
+        foreach(string name in new[]{"PlanAloud.Updater.exe","PlanAloud.Updater.dll","PlanAloud.Updater.deps.json","PlanAloud.Updater.runtimeconfig.json"})File.Copy(Path.Combine(AppContext.BaseDirectory,name),Path.Combine(folder,name));
+        var start=new ProcessStartInfo(Path.Combine(folder,"PlanAloud.Updater.exe")){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=folder};
         foreach(string argument in new[]{AppContext.BaseDirectory,zip,manifest,Environment.ProcessId.ToString()})start.ArgumentList.Add(argument);
         _ = Process.Start(start)??throw new Exception("无法启动更新程序");
     }

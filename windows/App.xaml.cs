@@ -3,7 +3,7 @@ using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-namespace DayFlow.Widget;
+namespace PlanAloud.Widget;
 public partial class App : Application {
     protected override void OnStartup(StartupEventArgs e) {
         base.OnStartup(e);

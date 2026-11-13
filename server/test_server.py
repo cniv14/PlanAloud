@@ -1,5 +1,6 @@
 import copy
 import http.client
+import io
 import json
 import os
 import tempfile
@@ -9,7 +10,26 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from server import ApiError, Server, Store
+from server import ApiError, Server, Store, WeatherProxy
+
+
+class WeatherTests(unittest.TestCase):
+    def test_upstream_fallback_and_cache(self):
+        proxy = WeatherProxy()
+        params = {'lat': ['39.90'], 'lon': ['116.40']}
+        fallback = b'{"properties":{"timeseries":[{}]}}'
+        with patch('server.urlopen', side_effect=[TimeoutError(), io.BytesIO(fallback)]) as upstream:
+            result = proxy.get(params)
+            self.assertEqual(result['source'], 'MET Norway')
+            self.assertEqual(proxy.get(params), result)
+            self.assertEqual(upstream.call_count, 2)
+            self.assertIn('api.open-meteo.com', upstream.call_args_list[0].args[0].full_url)
+            self.assertIn('api.met.no', upstream.call_args_list[1].args[0].full_url)
+
+    def test_invalid_coordinates_are_rejected(self):
+        with self.assertRaises(ApiError) as error:
+            WeatherProxy().get({'lat': ['nan'], 'lon': ['116.40']})
+        self.assertEqual(error.exception.status, 400)
 
 
 class SyncTests(unittest.TestCase):
@@ -123,7 +143,11 @@ class SyncTests(unittest.TestCase):
             connection.request(method,path,json.dumps(body) if body is not None else None,headers)
             response=connection.getresponse();return response.status,json.loads(response.read())
         try:
-            self.assertEqual(call('GET','/health')[0],200)
+            self.assertEqual(call('GET','/health')[1]['service'],'planaloud')
+            self.assertEqual(call('GET','/v1/weather?lat=39.9&lon=116.4')[0],401)
+            self.assertEqual(call('GET','/v1/weather?lat=nan&lon=116.4',token=self.a['token'])[0],400)
+            with patch.object(server.weather,'get',return_value={'source':'Open-Meteo','data':{}}):
+                self.assertEqual(call('GET','/v1/weather?lat=39.9&lon=116.4',token=self.a['token'])[1]['source'],'Open-Meteo')
             self.assertEqual(call('POST','/v1/sync',{'cursor':0})[0],401)
             self.assertEqual(call('POST','/v1/sync',[],self.a['token'])[0],400)
             self.assertEqual(call('POST','/v1/sync',{'cursor':0},self.a['token'])[0],200)
@@ -136,10 +160,12 @@ class SyncTests(unittest.TestCase):
         server=Server(('127.0.0.1',0),self.store);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         connection=http.client.HTTPConnection('127.0.0.1',server.server_port)
         try:
-            with patch.dict(os.environ,{'DAYFLOW_UPDATES_DIR':str(folder)}):
-                connection.request('GET','/updates/android-update.json');response=connection.getresponse();self.assertEqual(response.status,200);self.assertEqual(json.loads(response.read()),{'payload':'test'})
-                connection.request('GET','/updates/../server.py');response=connection.getresponse();self.assertEqual(response.status,404);response.read()
-                connection.request('GET','/updates/missing.apk');response=connection.getresponse();self.assertEqual(response.status,404);response.read()
+            with patch.dict(os.environ,{'PLANALOUD_UPDATES_DIR':str(folder)}):
+                headers={'Authorization':'Bearer '+self.a['token']}
+                connection.request('GET','/updates/android-update.json');response=connection.getresponse();self.assertEqual(response.status,401);response.read()
+                connection.request('GET','/updates/android-update.json',headers=headers);response=connection.getresponse();self.assertEqual(response.status,200);self.assertEqual(json.loads(response.read()),{'payload':'test'})
+                connection.request('GET','/updates/../server.py',headers=headers);response=connection.getresponse();self.assertEqual(response.status,404);response.read()
+                connection.request('GET','/updates/missing.apk',headers=headers);response=connection.getresponse();self.assertEqual(response.status,404);response.read()
         finally:connection.close();server.shutdown();server.server_close();thread.join()
 
 

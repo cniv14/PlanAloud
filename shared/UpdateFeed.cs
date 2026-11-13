@@ -3,16 +3,16 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
-namespace DayFlow.Updating;
+namespace PlanAloud.Updating;
 
 public static class UpdateFeed
 {
     public const int VersionCode=3;
-    public const string DefaultUrl="https://github.com/cniv14/DayFlow/releases/latest/download/windows-update.json";
+    public const string DefaultUrl="https://github.com/cniv14/PlanAloud/releases/latest/download/windows-update.json";
     public static JsonObject Verify(string envelope,string platform)
     {
         var root=JsonNode.Parse(envelope)!.AsObject();byte[] payload=Convert.FromBase64String(root["payload"]!.GetValue<string>()),signature=Convert.FromBase64String(root["signature"]!.GetValue<string>());
-        using var rsa=RSA.Create();using var input=typeof(UpdateFeed).Assembly.GetManifestResourceStream("DayFlow.UpdateKey")!;using var reader=new StreamReader(input);rsa.ImportFromPem(reader.ReadToEnd());
+        using var rsa=RSA.Create();using var input=typeof(UpdateFeed).Assembly.GetManifestResourceStream("PlanAloud.UpdateKey")!;using var reader=new StreamReader(input);rsa.ImportFromPem(reader.ReadToEnd());
         if(!rsa.VerifyData(payload,signature,HashAlgorithmName.SHA256,RSASignaturePadding.Pkcs1))throw new Exception("更新清单签名无效");
         var info=JsonNode.Parse(payload)!.AsObject();long size=info["size"]!.GetValue<long>();
         if(info["schema"]!.GetValue<int>()!=1||info["platform"]!.GetValue<string>()!=platform||size<=0||size>200L*1024*1024||!System.Text.RegularExpressions.Regex.IsMatch(info["sha256"]!.GetValue<string>(),"^[a-f0-9]{64}$"))throw new Exception("无效更新清单");

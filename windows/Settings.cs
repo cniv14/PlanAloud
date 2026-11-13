@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace DayFlow.Widget;
+namespace PlanAloud.Widget;
 
 public sealed class WidgetSettings
 {
@@ -22,7 +22,7 @@ public sealed class WidgetSettings
     public bool Blur { get; set; } = true;
     public double Opacity { get; set; } = .86;
     public string Wallpaper { get; set; } = "";
-    public string UpdateUrl { get; set; } = DayFlow.Updating.UpdateFeed.DefaultUrl;
+    public string UpdateUrl { get; set; } = PlanAloud.Updating.UpdateFeed.DefaultUrl;
     public bool AutoUpdates { get; set; }
     public static WidgetSettings Load()
     {

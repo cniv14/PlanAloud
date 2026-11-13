@@ -21,7 +21,7 @@ def token():
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('action',choices=['check','create','release']);p.add_argument('--repo',default='cniv14/DayFlow');p.add_argument('--directory');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['check','create','release']);p.add_argument('--repo',default='cniv14/PlanAloud');p.add_argument('--directory');a=p.parse_args()
     secret=token()
     def api(path,body=None,raw=None,content_type='application/json'):
         data=raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
@@ -42,7 +42,7 @@ def main():
     from urllib.parse import quote
     for file in sorted(Path(a.directory).iterdir()):
         if not file.is_file():continue
-        if file.name not in {'DayFlow-android.apk','DayFlow-windows.zip','DayFlow-server.zip','android-update.json','windows-update.json','Testing.md','timetable-template.csv','SHA256SUMS.txt'}:continue
+        if file.name not in {'PlanAloud-android.apk','PlanAloud-windows.zip','PlanAloud-server.zip','android-update.json','windows-update.json','Testing.md','timetable-template.csv','SHA256SUMS.txt'}:continue
         api(upload+'?name='+quote(file.name),raw=file.read_bytes(),content_type='application/octet-stream')
         print('Uploaded '+file.name)
     print('Release: '+release['html_url'])

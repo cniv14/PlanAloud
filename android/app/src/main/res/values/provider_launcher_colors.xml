@@ -1,0 +1,14 @@
+<resources>
+    <color name="launcher_deepseek_background">#C8DEFA</color>
+    <color name="launcher_claude_background">#FFDAC7</color>
+    <color name="launcher_gemini_background">#E9D5FC</color>
+    <color name="launcher_qwen_background">#DADFFF</color>
+    <color name="launcher_seed_background">#C9EDFA</color>
+    <color name="launcher_kimi_background">#D8DCEF</color>
+    <color name="launcher_glm_background">#DCE2E6</color>
+    <color name="launcher_grok_background">#EECFD4</color>
+    <color name="launcher_minimax_background">#FFD8E0</color>
+    <color name="launcher_llama_background">#EDE3CF</color>
+    <color name="launcher_copilot_background">#BBEAF0</color>
+    <color name="launcher_gpt_background">#DED6F2</color>
+</resources>

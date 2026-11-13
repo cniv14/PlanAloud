@@ -1,4 +1,4 @@
-"""DayFlow optional sync server. Python 3.12+, no third-party dependencies.
+"""Plan Aloud sync server. Python 3.12+, no third-party dependencies.
 
 The app works without this service. Run behind a TLS reverse proxy on the cloud.
 Records are isolated by account, IDs are client UUIDs, versions are server CAS.
@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import io
+import math
 import tempfile
 import os
 import re
@@ -19,7 +20,17 @@ import uuid
 from pathlib import Path
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode
+from urllib.request import Request, urlopen
+
+def config(old_name, default):
+    return os.getenv(old_name.replace('DAYFLOW_', 'PLANALOUD_', 1), os.getenv(old_name, default))
+
+
+def database_path():
+    legacy = Path('/data/dayflow.db')
+    return config('DAYFLOW_DB', str(legacy if legacy.is_file() else Path('planaloud.db')))
+
 
 MAX_BODY = 2 * 1024 * 1024  # Unauthenticated control requests only.
 MAX_SYNC_BODY = max(0, int(os.getenv("DAYFLOW_MAX_SYNC_BYTES", "0")))  # 0: no product size quota.
@@ -30,6 +41,83 @@ TOKEN_TTL = 30 * 86400
 class ApiError(Exception):
     def __init__(self, status, message):
         self.status, self.message = status, message
+
+
+class WeatherProxy:
+    def __init__(self):
+        self.cache = {}
+        self.lock = threading.Lock()
+        self.slots = threading.BoundedSemaphore(2)
+
+    def get(self, params):
+        kind = params.get('kind', ['forecast'])[0]
+        if kind == 'cities':
+            query = params.get('q', [''])[0].strip()
+            if not query or len(query) > 120:
+                raise ApiError(400, '城市名称无效')
+            key = (kind, query.casefold())
+            options = [('Open-Meteo', 'https://geocoding-api.open-meteo.com/v1/search?' +
+                        urlencode({'name': query, 'count': 8, 'language': 'zh', 'format': 'json'}))]
+        elif kind == 'forecast':
+            try:
+                lat = float(params.get('lat', [''])[0])
+                lon = float(params.get('lon', [''])[0])
+                if not all(map(math.isfinite, (lat, lon))) or abs(lat) > 90 or abs(lon) > 180:
+                    raise ValueError()
+            except ValueError:
+                raise ApiError(400, '无效经纬度')
+            lat, lon = f'{lat:.2f}', f'{lon:.2f}'
+            key = (kind, lat, lon)
+            options = [
+                ('Open-Meteo', 'https://api.open-meteo.com/v1/forecast?' + urlencode({
+                    'latitude': lat, 'longitude': lon, 'timezone': 'auto', 'forecast_days': 10,
+                    'current': 'temperature_2m,weather_code',
+                    'daily': 'temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max'})),
+                ('MET Norway', 'https://api.met.no/weatherapi/locationforecast/2.0/compact?' +
+                 urlencode({'lat': lat, 'lon': lon})),
+            ]
+        else:
+            raise ApiError(400, '无效天气查询')
+        with self.lock:
+            cached = self.cache.get(key)
+            if cached and time.monotonic() < cached[0]:
+                return cached[1]
+        if not self.slots.acquire(blocking=False):
+            raise ApiError(503, '天气服务繁忙')
+        try:
+            for source, url in options:
+                try:
+                    request = Request(url, headers={
+                        'User-Agent': 'PlanAloud-Server (https://github.com/cniv14/PlanAloud)',
+                        'Accept': 'application/json'})
+                    with urlopen(request, timeout=4) as response:
+                        raw = response.read(1024 * 1024 + 1)
+                    if len(raw) > 1024 * 1024:
+                        continue
+                    data = json.loads(raw)
+                    if kind == 'cities':
+                        valid = isinstance(data.get('results', []), list) and not data.get('error')
+                    elif source == 'Open-Meteo':
+                        valid = (isinstance(data['current']['temperature_2m'], (int, float))
+                                 and isinstance(data['current']['weather_code'], int)
+                                 and bool(data['daily']['time']))
+                    else:
+                        valid = bool(data['properties']['timeseries'])
+                    if not valid:
+                        continue
+                    result = {'source': source, 'data': data, 'fetched_at': int(time.time())}
+                    ttl = 3 * 3600 if source == 'MET Norway' else 600 if kind == 'forecast' else 3600
+                    with self.lock:
+                        self.cache.pop(key, None)
+                        if len(self.cache) >= 256:
+                            self.cache.pop(next(iter(self.cache)))
+                        self.cache[key] = (time.monotonic() + ttl, result)
+                    return result
+                except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                    continue
+            raise ApiError(503, '天气来源暂不可用')
+        finally:
+            self.slots.release()
 
 
 class Store:
@@ -81,8 +169,8 @@ class Store:
     def runtime_limit(self, user_id):
         # Account-wide, persistent quota shared by all sessions/devices and restarts.
         now = int(time.time())
-        window = max(60, int(os.getenv('DAYFLOW_RUNTIME_WINDOW_SECONDS', '3600')))
-        maximum = max(1, int(os.getenv('DAYFLOW_RUNTIME_REQUESTS', '10')))
+        window = max(60, int(config('DAYFLOW_RUNTIME_WINDOW_SECONDS', '3600')))
+        maximum = max(1, int(config('DAYFLOW_RUNTIME_REQUESTS', '10')))
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             db.execute('CREATE TABLE IF NOT EXISTS runtime_requests(user_id TEXT PRIMARY KEY, start INTEGER NOT NULL, count INTEGER NOT NULL)')
@@ -112,9 +200,9 @@ class Store:
             raise ApiError(400, 'device_id 必须是 UUID')
         with self.connect() as db:
             if register:
-                if os.getenv('DAYFLOW_REGISTRATION', 'true').lower() != 'true':
+                if config('DAYFLOW_REGISTRATION', 'true').lower() != 'true':
                     raise ApiError(403, '服务器已关闭注册')
-                invite = os.getenv('DAYFLOW_INVITE_CODE', '')
+                invite = config('DAYFLOW_INVITE_CODE', '')
                 if invite and not hmac.compare_digest(invite, str(body.get('invite_code', ''))):
                     raise ApiError(403, '邀请码无效')
                 salt = secrets.token_hex(16)
@@ -234,6 +322,7 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
     def __init__(self, address, store):
         self.store = store
+        self.weather = WeatherProxy()
         self.slots = threading.BoundedSemaphore(8)
         super().__init__(address, Handler)
 
@@ -256,7 +345,7 @@ class Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'DayFlow/1.2'
+    server_version = 'PlanAloud/1.4.2'
     def setup(self):
         super().setup()
         self.connection.settimeout(15)
@@ -332,7 +421,15 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(body, dict):
                     raise ApiError(400, '请求体必须为对象')
             if path == '/health' and not post:
-                result = {'ok': True, 'protocol': 1, 'service': 'dayflow', 'capabilities': ['types', 'recurrence', 'opaque_fields', 'large_records', 'cas', 'runtime_modules_v1'], 'version': '1.2.0', 'limits': {'sync_body_bytes': MAX_SYNC_BODY, 'record_bytes': 0, 'mutations_per_batch': 100, 'changes_per_page': 200}}
+                result = {'ok': True, 'protocol': 1, 'service': 'planaloud', 'capabilities': ['types', 'recurrence', 'opaque_fields', 'large_records', 'cas', 'runtime_modules_v1', 'weather_v1'], 'version': '1.4.2', 'limits': {'sync_body_bytes': MAX_SYNC_BODY, 'record_bytes': 0, 'mutations_per_batch': 100, 'changes_per_page': 200}}
+            elif path == '/v1/weather' and not post:
+                user = self.user()
+                store.limit('weather:' + user['user_id'])
+                try:
+                    params = parse_qs(urlparse(self.path).query, max_num_fields=8)
+                except ValueError:
+                    raise ApiError(400, '无效天气查询')
+                result = self.server.weather.get(params)
             elif path in ('/v1/auth/register', '/v1/auth/login') and post:
                 store.limit('auth:' + self.client_address[0])
                 result = store.auth(body, path.endswith('register'))
@@ -341,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path == '/v1/runtime-update' and not post:
                 user = self.user()
                 store.runtime_limit(user['user_id'])
-                folder = Path(os.getenv('DAYFLOW_UPDATES_DIR', 'updates')).resolve()
+                folder = Path(config('DAYFLOW_UPDATES_DIR', 'updates')).resolve()
                 file = folder / 'runtime-update.json'
                 if file.is_symlink() or not file.is_file() or file.resolve().parent != folder:
                     raise ApiError(404, '尚未发布功能热更新包')
@@ -378,11 +475,11 @@ class Handler(BaseHTTPRequestHandler):
         user = self.user()
         self.server.store.runtime_limit(user['user_id'])
         name = path.removeprefix('/v1/updates/')
-        allowed = {'android-update.json', 'DayFlow-android.apk', 'runtime-update.json',
+        allowed = {'android-update.json', 'PlanAloud-android.apk', 'runtime-update.json',
                    'assistant-module.json', 'markdown-module.json', 'almanac-module.json', 'voice-module.json', 'voice-model.json', 'voice-model.bin', 'voice-engine.json', 'voice-engine-arm64.zip', 'voice-engine-armv7.zip'}
         if name not in allowed:
             raise ApiError(404, '更新资源不存在')
-        folder = Path(os.getenv('DAYFLOW_UPDATES_DIR', 'updates')).resolve()
+        folder = Path(config('DAYFLOW_UPDATES_DIR', 'updates')).resolve()
         file = folder / name
         if file.is_symlink() or not file.is_file() or file.resolve().parent != folder:
             raise ApiError(404, '尚未发布此更新')
@@ -400,11 +497,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
 
     def serve_update(self, path):
-        allowed = {'android-update.json', 'windows-update.json', 'DayFlow-android.apk', 'DayFlow-windows.zip'}
+        allowed = {'android-update.json', 'windows-update.json', 'PlanAloud-android.apk', 'PlanAloud-windows.zip'}
         name = path.removeprefix('/updates/')
         if name not in allowed:
             raise ApiError(404, '更新资源不存在')
-        folder = Path(os.getenv('DAYFLOW_UPDATES_DIR', 'updates')).resolve()
+        folder = Path(config('DAYFLOW_UPDATES_DIR', 'updates')).resolve()
         file = folder / name
         if file.is_symlink() or not file.is_file() or file.resolve().parent != folder:
             raise ApiError(404, '尚未发布更新包')
@@ -421,9 +518,9 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', default=os.getenv('DAYFLOW_HOST', '0.0.0.0'))
-    parser.add_argument('--port', type=int, default=int(os.getenv('DAYFLOW_PORT', '8765')))
-    parser.add_argument('--db', default=os.getenv('DAYFLOW_DB', 'dayflow.db'))
+    parser.add_argument('--host', default=config('DAYFLOW_HOST', '0.0.0.0'))
+    parser.add_argument('--port', type=int, default=int(config('DAYFLOW_PORT', '8765')))
+    parser.add_argument('--db', default=database_path())
     args = parser.parse_args()
-    print(f'DayFlow sync listening on {args.host}:{args.port}', flush=True)
+    print(f'Plan Aloud sync listening on {args.host}:{args.port}', flush=True)
     Server((args.host, args.port), Store(args.db)).serve_forever()

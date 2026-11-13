@@ -9,7 +9,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 
-namespace DayFlow.Widget;
+namespace PlanAloud.Widget;
 
 public partial class MainWindow : Window
 {
@@ -89,8 +89,8 @@ public partial class MainWindow : Window
     void FilesClick(object sender,RoutedEventArgs e)
     {
         var p=Panel();var dialog=Dialog("文件同步 · 无需账号",p,280);p.Children.Add(Label("事项保留原始 ID。并发修改保留冲突副本，密钥与登录信息不会导出。文件是明文，请妥善保存。",13));
-        p.Children.Add(Action("导出 .dayflow 文件",()=>{var picker=new SaveFileDialog{Filter="DayFlow|*.dayflow",FileName=$"dayflow-{DateTime.Today:yyyy-MM-dd}.dayflow"};if(picker.ShowDialog()!=true)return;try{File.WriteAllText(picker.FileName,store.Export().ToJsonString());StatusLabel.Text="文件已导出";dialog.Close();}catch(Exception ex){MessageBox.Show(ex.Message);}}));
-        p.Children.Add(Action("导入并合并",()=>{var picker=new OpenFileDialog{Filter="DayFlow|*.dayflow;*.json"};if(picker.ShowDialog()!=true)return;try{if(new FileInfo(picker.FileName).Length>16*1024*1024)throw new Exception("导入文件上限16MB");StatusLabel.Text=store.Merge(JsonNode.Parse(File.ReadAllText(picker.FileName))!.AsObject());dialog.Close();Render();}catch(Exception ex){MessageBox.Show(ex.Message);}}));dialog.ShowDialog();
+        p.Children.Add(Action("导出 .dayflow 文件",()=>{var picker=new SaveFileDialog{Filter="Plan Aloud|*.dayflow",FileName=$"planaloud-{DateTime.Today:yyyy-MM-dd}.dayflow"};if(picker.ShowDialog()!=true)return;try{File.WriteAllText(picker.FileName,store.Export().ToJsonString());StatusLabel.Text="文件已导出";dialog.Close();}catch(Exception ex){MessageBox.Show(ex.Message);}}));
+        p.Children.Add(Action("导入并合并",()=>{var picker=new OpenFileDialog{Filter="Plan Aloud|*.dayflow;*.json"};if(picker.ShowDialog()!=true)return;try{if(new FileInfo(picker.FileName).Length>16*1024*1024)throw new Exception("导入文件上限16MB");StatusLabel.Text=store.Merge(JsonNode.Parse(File.ReadAllText(picker.FileName))!.AsObject());dialog.Close();Render();}catch(Exception ex){MessageBox.Show(ex.Message);}}));dialog.ShowDialog();
     }
     async Task Run(Func<Task<string>> work)
     {
@@ -134,8 +134,8 @@ public partial class MainWindow : Window
         p.Children.Add(Action("恢复默认背景",()=>{settings.Wallpaper="";settings.Save();ApplyStyle();}));
         var feed=Field(p,"更新清单 URL（可改为自建服务器）",settings.UpdateUrl);var autoUpdates=new CheckBox{Content="每6小时检查并提示更新（默认关闭）",IsChecked=settings.AutoUpdates,Margin=new(0,8,0,8)};p.Children.Add(autoUpdates);
         p.Children.Add(Action("检查并安装更新",async()=>await CheckUpdates(false)));
-        p.Children.Add(Label("MIT · DayFlow 0.1\n数据目录："+LocalStore.Folder+"\n更新将验证 RSA 签名和 SHA-256，重启后生效。",11));var dialog=Dialog("外观与设置",p,650);
-        p.Children.Add(Action("保存",()=>{try{DayFlow.Updating.UpdateFeed.ValidateUrl(feed.Text);settings.UpdateUrl=feed.Text.Trim();settings.AutoUpdates=autoUpdates.IsChecked==true;updateTimer.Stop();if(settings.AutoUpdates)updateTimer.Start();settings.Topmost=top.IsChecked==true;settings.Blur=blur.IsChecked==true;settings.Motion=motion.IsChecked==true;settings.Opacity=opacity.Value;settings.Save();ApplyStyle();dialog.Close();}catch(Exception ex){MessageBox.Show(ex.Message);}}));dialog.ShowDialog();
+        p.Children.Add(Label("MIT · Plan Aloud\n数据目录："+LocalStore.Folder+"\n更新将验证 RSA 签名和 SHA-256，重启后生效。",11));var dialog=Dialog("外观与设置",p,650);
+        p.Children.Add(Action("保存",()=>{try{PlanAloud.Updating.UpdateFeed.ValidateUrl(feed.Text);settings.UpdateUrl=feed.Text.Trim();settings.AutoUpdates=autoUpdates.IsChecked==true;updateTimer.Stop();if(settings.AutoUpdates)updateTimer.Start();settings.Topmost=top.IsChecked==true;settings.Blur=blur.IsChecked==true;settings.Motion=motion.IsChecked==true;settings.Opacity=opacity.Value;settings.Save();ApplyStyle();dialog.Close();}catch(Exception ex){MessageBox.Show(ex.Message);}}));dialog.ShowDialog();
     }
     async Task CheckUpdates(bool automatic)
     {

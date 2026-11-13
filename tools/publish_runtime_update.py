@@ -18,7 +18,7 @@ def main():
     p.add_argument('--code', type=int, required=True, help='Monotonically increasing runtime revision, independent of APK version')
     p.add_argument('--min-app', type=int, default=131)
     p.add_argument('--max-app', type=int, default=131)
-    p.add_argument('--entry', default='app.dayflow.hotfix.Entry')
+    p.add_argument('--entry', default='app.planaloud.hotfix.Entry')
     p.add_argument('--notes', default='')
     a = p.parse_args()
     import re

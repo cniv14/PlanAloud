@@ -29,14 +29,14 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     # Preserve the signed Windows version and URL: its binary has not changed.
     if args.refresh_companions:
-        with zipfile.ZipFile(output / 'DayFlow-windows.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-            for project, name in (('windows','DayFlow.Widget'), ('windows/Updater','DayFlow.Updater')):
+        with zipfile.ZipFile(output / 'PlanAloud-windows.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+            for project, name in (('windows','PlanAloud.Widget'), ('windows/Updater','PlanAloud.Updater')):
                 for suffix in ('.exe','.dll','.deps.json','.runtimeconfig.json'):
                     file=root/project/'bin/Release/net10.0-windows'/(name+suffix)
                     archive.write(file,file.name)
             archive.write(root/'LICENSE','LICENSE')
-            archive.writestr('README.txt','DayFlow '+args.version+'\n需要 .NET 10 Desktop Runtime。解压到可写目录，运行 DayFlow.Widget.exe。保留 Updater 文件以使用在线更新。\n')
-        with zipfile.ZipFile(output / 'DayFlow-server.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr('README.txt','Plan Aloud '+args.version+'\n需要 .NET 10 Desktop Runtime。解压到可写目录，运行 PlanAloud.Widget.exe。保留 Updater 文件以使用在线更新。\n')
+        with zipfile.ZipFile(output / 'PlanAloud-server.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
             for name in ('server.py','backup.py','test_server.py','Dockerfile','compose.yaml','Caddyfile','.env.example'):
                 archive.write(root/'server'/name,'server/'+name)
             archive.writestr('server/updates/.keep','')
@@ -44,34 +44,41 @@ def main():
             for file in (root/'docs').glob('*.md'):
                 archive.write(file,'docs/'+file.name)
     else:
-        for name in ('DayFlow-windows.zip', 'DayFlow-server.zip', 'windows-update.json'):
+        for name in ('PlanAloud-windows.zip', 'PlanAloud-server.zip', 'windows-update.json'):
             shutil.copyfile(args.companions / name, output / name)
-    if args.refresh_server and not args.refresh_companions:
-        with zipfile.ZipFile(output / 'DayFlow-server.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-            for name in ('server.py','backup.py','Dockerfile','compose.yaml','Caddyfile','.env.example'):
+    if args.refresh_server:
+        with zipfile.ZipFile(output / 'PlanAloud-server.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+            for name in ('server.py','backup.py','test_server.py','Dockerfile','compose.yaml','Caddyfile','.env.example'):
                 archive.write(root/'server'/name,'server/'+name)
             archive.writestr('server/updates/.keep','')
             archive.write(root/'LICENSE','LICENSE')
             for file in (root/'docs').glob('*.md'):
                 archive.write(file,'docs/'+file.name)
-            for name in ('tools/publish_runtime_update.py','tools/build_runtime_example.py','examples/hotupdate/Entry.java','android/app/src/main/java/app/dayflow/HotModule.java','tools/package_feature_modules.py','tools/package_voice_engine.py','tools/publish_voice_model.py','tools/fetch_whisper.py'):
+            for name in ('tools/publish_runtime_update.py','tools/build_runtime_example.py','examples/hotupdate/Entry.java','android/app/src/main/java/app/planaloud/HotModule.java','tools/package_feature_modules.py','tools/package_voice_engine.py','tools/publish_voice_model.py','tools/fetch_whisper.py'):
                 archive.write(root/name,name)
     publish(root / '.signing/updates-private.pem', output,
-            'https://github.com/cniv14/DayFlow/releases/download/v' + args.version,
+            'https://github.com/cniv14/PlanAloud/releases/download/v' + args.version,
             args.version, args.code,
-            android=root / 'android/app/build/outputs/apk/release/app-release.apk',
-            windows=output/'DayFlow-windows.zip' if args.refresh_companions else None)
-    if not args.refresh_companions:
+            android=root / 'android/app/build/outputs/apk/release/app-release.apk')
+    if args.refresh_companions:
+        import xml.etree.ElementTree as ET
+        windows_version = ET.parse(root/'windows/PlanAloud.Widget.csproj').findtext('./PropertyGroup/Version')
+        code_source = (root/'shared/UpdateFeed.cs').read_text(encoding='utf-8')
+        windows_code = int(code_source.split('VersionCode=', 1)[1].split(';', 1)[0])
+        publish(root / '.signing/updates-private.pem', output,
+                'https://github.com/cniv14/PlanAloud/releases/download/v' + args.version,
+                windows_version, windows_code, windows=output/'PlanAloud-windows.zip')
+    else:
         # Rehost unchanged Windows bytes on this release before old releases are
         # removed. Preserve its real version/code instead of inventing a new build.
         previous = json.loads((output / 'windows-update.json').read_text(encoding='utf-8'))
         payload = json.loads(base64.b64decode(previous['payload']))
-        with (output / 'DayFlow-windows.zip').open('rb') as stream:
+        with (output / 'PlanAloud-windows.zip').open('rb') as stream:
             if hashlib.file_digest(stream, 'sha256').hexdigest() != payload['sha256']:
                 parser.error('The preserved Windows ZIP does not match its signed manifest.')
         publish(root / '.signing/updates-private.pem', output,
-                'https://github.com/cniv14/DayFlow/releases/download/v' + args.version,
-                payload['version'], payload['version_code'], windows=output / 'DayFlow-windows.zip')
+                'https://github.com/cniv14/PlanAloud/releases/download/v' + args.version,
+                payload['version'], payload['version_code'], windows=output / 'PlanAloud-windows.zip')
     shutil.copyfile(root / 'docs' / ('Android-' + args.version + '.md'), output / 'Testing.md')
     shutil.copyfile(root / 'examples/课表模板.csv', output / 'timetable-template.csv')
     api_doc = root / 'docs/客户端同步API.md'
@@ -85,7 +92,7 @@ def main():
         apk = root / 'android/ocrPlugin/build/outputs/apk/release' / f'ocrPlugin-{abi}-release.apk'
         if not apk.is_file():
             parser.error(f'Missing optional OCR APK: {apk}; build :ocrPlugin:assembleRelease first.')
-        destination = f'DayFlow-ocr-{name}.apk'
+        destination = f'PlanAloud-ocr-{name}.apk'
         shutil.copyfile(apk, output / destination)
         plugin_names.append(destination)
     for module, name in (() if args.embedded_modules else (('markdownPlugin', 'markdown'), ('almanacPlugin', 'almanac'), ('assistantPlugin', 'assistant'))):
@@ -111,7 +118,7 @@ def main():
         if not source.is_file():
             parser.error('Formula renderer source must accompany APK. Run tools/fetch_math_source.py or pass --math-source.')
         shutil.copyfile(source, output/'MathRenderer-source.zip')
-    names = ('DayFlow-android.apk', 'DayFlow-windows.zip', 'DayFlow-server.zip',
+    names = ('PlanAloud-android.apk', 'PlanAloud-windows.zip', 'PlanAloud-server.zip',
              'android-update.json', 'windows-update.json', 'Testing.md', 'timetable-template.csv')
     checks = []
     for name in sorted(names + tuple(plugin_names) + (('ClientSyncAPI.md',) if api_doc.exists() else ()) + (('TaskFlowProtocol.md',) if taskflow_doc.exists() else ()) + (('MathRenderer-source.zip',) if math_included else ())):

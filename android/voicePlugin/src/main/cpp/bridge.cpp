@@ -6,8 +6,8 @@
 static std::atomic<bool> cancelled{false};
 static std::mutex inference;
 static bool abort_inference(void *) { return cancelled.load(); }
-extern "C" JNIEXPORT void JNICALL Java_app_dayflow_voice_NativeSpeech_cancel(JNIEnv *,jclass) { cancelled.store(true); }
-extern "C" JNIEXPORT jstring JNICALL Java_app_dayflow_voice_NativeSpeech_transcribe(JNIEnv *env,jclass,jstring path,jfloatArray samples,jint threads) {
+extern "C" JNIEXPORT void JNICALL Java_app_planaloud_voice_NativeSpeech_cancel(JNIEnv *,jclass) { cancelled.store(true); }
+extern "C" JNIEXPORT jstring JNICALL Java_app_planaloud_voice_NativeSpeech_transcribe(JNIEnv *env,jclass,jstring path,jfloatArray samples,jint threads) {
  std::lock_guard<std::mutex> lock(inference);cancelled.store(false);
  const char *name=env->GetStringUTFChars(path,nullptr);if(!name)return nullptr;
  auto params=whisper_context_default_params();params.use_gpu=false;

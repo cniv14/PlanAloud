@@ -1,5 +1,6 @@
 """Create a consistent SQLite backup without copying a live WAL database file."""
 import argparse
+from server import database_path
 import os
 from pathlib import Path
 import sqlite3
@@ -7,7 +8,7 @@ import sqlite3
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--database', default=os.getenv('DAYFLOW_DB', 'dayflow.db'))
+    parser.add_argument('--database', default=database_path())
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     source, target = Path(args.database).resolve(), Path(args.output).resolve()

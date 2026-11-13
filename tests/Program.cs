@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using DayFlow.Widget;
+using PlanAloud.Widget;
 
 // Do not run against a real profile: tests use injectable local storage below.
 var dir=Path.Combine(Path.GetTempPath(),"dayflow-tests-"+Guid.NewGuid());Directory.CreateDirectory(dir);
@@ -23,12 +23,12 @@ try
     Check(a.Records.Any(x=>LocalStore.S(x,"title")=="Daily"&&LocalStore.S(x,"start_at")=="2026-10-21T09:00:00"&&LocalStore.S(x,"end_at")=="2026-10-21T10:00:00"),"repeat preserves next duration");
     Console.WriteLine("All 10 local merge and persistence checks passed.");
     string signed=File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"fixtures/windows-update.json"));
-    var verified=DayFlow.Updating.UpdateFeed.Verify(signed,"windows");Check(verified["version_code"]!.GetValue<int>()==2,"valid signed update accepted");
+    var verified=PlanAloud.Updating.UpdateFeed.Verify(signed,"windows");Check(verified["version_code"]!.GetValue<int>()==2,"valid signed update accepted");
     var tampered=JsonNode.Parse(signed)!.AsObject();tampered["payload"]=Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("{}"));
-    try{DayFlow.Updating.UpdateFeed.Verify(tampered.ToJsonString(),"windows");throw new Exception("Tampered update accepted");}catch(Exception e) when(e.Message.Contains("签名")){}Console.WriteLine("PASS tampered update rejected");
-    try{DayFlow.Updating.UpdateFeed.Verify(signed,"android");throw new Exception("Wrong platform accepted");}catch(Exception e) when(e.Message.Contains("清单")){}Console.WriteLine("PASS wrong update platform rejected");
+    try{PlanAloud.Updating.UpdateFeed.Verify(tampered.ToJsonString(),"windows");throw new Exception("Tampered update accepted");}catch(Exception e) when(e.Message.Contains("签名")){}Console.WriteLine("PASS tampered update rejected");
+    try{PlanAloud.Updating.UpdateFeed.Verify(signed,"android");throw new Exception("Wrong platform accepted");}catch(Exception e) when(e.Message.Contains("清单")){}Console.WriteLine("PASS wrong update platform rejected");
     string package=Path.Combine(dir,"invalid.zip");File.WriteAllText(package,"not-the-package");
-    try{DayFlow.Updating.UpdateFeed.CheckFile(package,verified);throw new Exception("Wrong hash accepted");}catch(Exception e) when(e.Message.Contains("SHA-256")){}Console.WriteLine("PASS altered package rejected");
+    try{PlanAloud.Updating.UpdateFeed.CheckFile(package,verified);throw new Exception("Wrong hash accepted");}catch(Exception e) when(e.Message.Contains("SHA-256")){}Console.WriteLine("PASS altered package rejected");
 }
 finally{Directory.Delete(dir,true);}
 static void Check(bool value,string message){if(!value)throw new Exception(message);Console.WriteLine("PASS "+message);}

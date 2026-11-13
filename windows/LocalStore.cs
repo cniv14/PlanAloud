@@ -4,11 +4,20 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace DayFlow.Widget;
+namespace PlanAloud.Widget;
 
 public sealed class LocalStore
 {
-    public static readonly string Folder = Environment.GetEnvironmentVariable("DAYFLOW_DATA_DIR") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DayFlow");
+    public static readonly string Folder = ResolveFolder();
+    private static string ResolveFolder()
+    {
+        var configured = Environment.GetEnvironmentVariable("PLANALOUD_DATA_DIR") ?? Environment.GetEnvironmentVariable("DAYFLOW_DATA_DIR");
+        if (!string.IsNullOrEmpty(configured)) return configured;
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var current = Path.Combine(appData, "PlanAloud");
+        var legacy = Path.Combine(appData, "DayFlow");
+        return !Directory.Exists(current) && Directory.Exists(legacy) ? legacy : current;
+    }
     readonly string file;
     readonly Dictionary<string, JsonObject> records = new();
     public Dictionary<string, long> Versions { get; private set; } = new();

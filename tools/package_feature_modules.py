@@ -15,7 +15,7 @@ def main():
   target=work/id;target.mkdir(exist_ok=True);jar=target/'classes.jar'
   with zipfile.ZipFile(root/f'android/{id}Plugin/build/outputs/aar/{id}Plugin-release.aar') as aar,zipfile.ZipFile(__import__('io').BytesIO(aar.read('classes.jar'))) as source,zipfile.ZipFile(jar,'w') as out:
    for entry in source.infolist():
-    if entry.filename.endswith('.class') and entry.filename.startswith('app/dayflow/'+id+'/') and not entry.filename.endswith('/NativeSpeech.class') and not entry.filename.split('/')[-1].startswith('R$') and not entry.filename.endswith('/R.class'):out.writestr(entry,source.read(entry))
+    if entry.filename.endswith('.class') and entry.filename.startswith('app/planaloud/'+id+'/') and not entry.filename.endswith('/NativeSpeech.class') and not entry.filename.split('/')[-1].startswith('R$') and not entry.filename.endswith('/R.class'):out.writestr(entry,source.read(entry))
   dex=target/'dex';dex.mkdir(exist_ok=True)
   args=['-cp',str(a.sdk/'build-tools/36.1.0/lib/d8.jar'),'com.android.tools.r8.D8','--release','--min-api','28','--lib',str(a.sdk/'platforms/android-36/android.jar'),'--output',str(dex)]
   for item in classpath:args+=['--classpath',str(item)]

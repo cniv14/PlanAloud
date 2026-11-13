@@ -1,19 +1,18 @@
 services:
-  dayflow:
+  planaloud:
     build: .
     restart: unless-stopped
     ports:
-      - "${DAYFLOW_BIND:-127.0.0.1}:${DAYFLOW_PORT:-8765}:8765"
+      - "${PLANALOUD_BIND:-${DAYFLOW_BIND:-127.0.0.1}}:${PLANALOUD_PORT:-${DAYFLOW_PORT:-8765}}:8765"
     environment:
-      DAYFLOW_DB: /data/dayflow.db
-      DAYFLOW_REGISTRATION: ${DAYFLOW_REGISTRATION:-true}
-      DAYFLOW_INVITE_CODE: ${DAYFLOW_INVITE_CODE:-}
-      DAYFLOW_RUNTIME_REQUESTS: ${DAYFLOW_RUNTIME_REQUESTS:-10}
-      DAYFLOW_RUNTIME_WINDOW_SECONDS: ${DAYFLOW_RUNTIME_WINDOW_SECONDS:-3600}
-      DAYFLOW_UPDATES_DIR: /updates
-      DAYFLOW_MAX_SYNC_BYTES: ${DAYFLOW_MAX_SYNC_BYTES:-0}
+      PLANALOUD_REGISTRATION: ${PLANALOUD_REGISTRATION:-${DAYFLOW_REGISTRATION:-true}}
+      PLANALOUD_INVITE_CODE: ${PLANALOUD_INVITE_CODE:-${DAYFLOW_INVITE_CODE:-}}
+      PLANALOUD_RUNTIME_REQUESTS: ${PLANALOUD_RUNTIME_REQUESTS:-${DAYFLOW_RUNTIME_REQUESTS:-10}}
+      PLANALOUD_RUNTIME_WINDOW_SECONDS: ${PLANALOUD_RUNTIME_WINDOW_SECONDS:-${DAYFLOW_RUNTIME_WINDOW_SECONDS:-3600}}
+      PLANALOUD_UPDATES_DIR: /updates
+      PLANALOUD_MAX_SYNC_BYTES: ${PLANALOUD_MAX_SYNC_BYTES:-${DAYFLOW_MAX_SYNC_BYTES:-0}}
     volumes:
-      - dayflow-data:/data
+      - planaloud-data:/data
       - ./updates:/updates:ro
     read_only: true
     tmpfs:
@@ -26,13 +25,14 @@ services:
     restart: unless-stopped
     ports: ["80:80", "443:443"]
     environment:
-      DAYFLOW_DOMAIN: ${DAYFLOW_DOMAIN:-localhost}
+      PLANALOUD_DOMAIN: ${PLANALOUD_DOMAIN:-${DAYFLOW_DOMAIN:-localhost}}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on: [dayflow]
+    depends_on: [planaloud]
 volumes:
-  dayflow-data:
+  planaloud-data:
+    name: ${PLANALOUD_DATA_VOLUME:-planaloud-data}
   caddy-data:
   caddy-config:

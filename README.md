@@ -1,10 +1,12 @@
-# 日栖 DayFlow
+# 序言 · Plan Aloud
 
 以 Android 为核心的离线日程、任务与笔记应用，配套 Windows 桌面挂件和可选的自托管同步服务。MIT 开源。
 
 **不注册、不联网、不部署服务器，也能使用本地核心功能。** AI、天气、同步和更新检查均为可选联网能力。
 
-**当前 Android： [1.3.2 APK](https://github.com/cniv14/DayFlow/releases/download/v1.3.2/DayFlow-android.apk)** · [发布页](https://github.com/cniv14/DayFlow/releases/tag/v1.3.2) · [使用说明](docs/Android-1.3.2.md)
+**当前 Android： [1.4.2 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.4.2/PlanAloud-android.apk)** · [发布页](https://github.com/cniv14/PlanAloud/releases/tag/v1.4.2) · [使用说明](docs/Android-1.4.2.md)
+
+**Android 1.4.2 · 序言 / Plan Aloud：** 服务端天气优先、单双列桌面挂件、收集箱审批与回收站。详见 [1.4.2 使用说明](docs/Android-1.4.2.md)。
 
 1.3.2将AI助手、完整Markdown、黄历和语音改为内嵌模块，不再单独安装插件APK。在设置→统一更新中一次配置GitHub或登录服务端来源、自动检查与回退。插件逻辑用签名热更新包更新；基础安装包约8.7MB，4个代码包合计约260KB。Android 9及以上可热加载模块；Android 8使用内置功能并通过主包升级。
 
@@ -119,6 +121,6 @@ Android 自定义 instrumentation 测试运行真实 SQLite、导入解析和 Ke
 
 ## 许可证与依赖
 
-本项目代码采用 [MIT License](LICENSE)。Android UI 依赖的 Material Components 和 AndroidX 使用 Apache 2.0，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。Android SDK、OpenJDK、.NET、Python、Caddy 与构建工具各自保留其原许可证；MIT 不替代这些许可证。天气来自 [Open-Meteo](https://open-meteo.com/)，AI 使用用户自行配置的服务。
+本项目代码采用 [MIT License](LICENSE)。Android UI 依赖的 Material Components 和 AndroidX 使用 Apache 2.0，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。Android SDK、OpenJDK、.NET、Python、Caddy 与构建工具各自保留其原许可证；MIT 不替代这些许可证。Android 天气优先使用 [Open-Meteo](https://open-meteo.com/)，失败时切换到 [MET Norway](https://api.met.no/weatherapi/locationforecast/2.0/documentation)。在「位置与天气」中选择城市、定位或输入经纬度即可查询。AI 使用用户自行配置的服务。
 
 其他客户端开发请参阅 [同步消息类型与 API](docs/客户端同步API.md)。
