@@ -17,6 +17,10 @@ public final class Data extends SQLiteOpenHelper {
     }
     private final Context context;private boolean batchWrite;
     private Data(Context c) { super(c, "planaloud.db", null, 5); context=c;setWriteAheadLoggingEnabled(true); }
+    @Override public void onConfigure(SQLiteDatabase db) {
+        super.onConfigure(db);
+        try(Cursor result=db.rawQuery("PRAGMA secure_delete=ON",null)){result.moveToFirst();}
+    }
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE records(id TEXT PRIMARY KEY,kind TEXT,title TEXT,start_at TEXT,deleted INTEGER,dirty INTEGER,version INTEGER DEFAULT 0,body TEXT,updated_at TEXT DEFAULT '',completed TEXT DEFAULT '',end_at TEXT DEFAULT '',due_date TEXT DEFAULT '',parent_id TEXT DEFAULT '',type_id TEXT DEFAULT '',recurrence TEXT DEFAULT '',preview TEXT)");
         db.execSQL("CREATE INDEX agenda ON records(deleted,kind,start_at)");
@@ -28,7 +32,7 @@ public final class Data extends SQLiteOpenHelper {
     }
     public void onUpgrade(SQLiteDatabase db,int oldV,int newV) {
         if(oldV<2){db.execSQL("ALTER TABLE records ADD COLUMN updated_at TEXT DEFAULT ''");db.execSQL("ALTER TABLE records ADD COLUMN completed TEXT DEFAULT ''");db.execSQL("ALTER TABLE records ADD COLUMN end_at TEXT DEFAULT ''");
-            try(Cursor c=db.rawQuery("SELECT id,body FROM records",null)){while(c.moveToNext())try{JSONObject r=new JSONObject(c.getString(1));ContentValues v=new ContentValues();v.put("updated_at",r.optString("updated_at"));v.put("completed",r.optString("completed"));v.put("end_at",endIndex(r));db.update("records",v,"id=?",new String[]{c.getString(0)});}catch(JSONException e){throw new IllegalStateException("Cannot migrate existing record",e);}}
+            try(Cursor c=db.rawQuery("SELECT id,body FROM records",null)){while(c.moveToNext())try{JSONObject r=new JSONObject(c.getString(1));ContentValues v=new ContentValues();v.put("updated_at",r.optBoolean("deleted")?r.optString("deleted_at",r.optString("updated_at")):r.optString("updated_at"));v.put("completed",r.optString("completed"));v.put("end_at",endIndex(r));db.update("records",v,"id=?",new String[]{c.getString(0)});}catch(JSONException e){throw new IllegalStateException("Cannot migrate existing record",e);}}
         }
         if(oldV<3){
             db.execSQL("ALTER TABLE records ADD COLUMN due_date TEXT DEFAULT ''");
@@ -86,7 +90,7 @@ public final class Data extends SQLiteOpenHelper {
         ContentValues v=new ContentValues();v.put("id",r.getString("id"));v.put("kind",r.getString("kind"));
         v.put("title",r.getString("title"));v.put("start_at",r.optString("start_at"));v.put("deleted",r.optBoolean("deleted")?1:0);
         v.put("dirty",dirty?1:0);v.put("version",version);String encoded=r.toString();v.put("body",encoded);v.put("preview",encoded.length()>32768?preview(r).toString():encoded);
-        v.put("updated_at",r.optString("updated_at"));v.put("completed",r.optString("completed"));v.put("end_at",endIndex(r));v.put("due_date",r.optString("due_date"));v.put("parent_id",r.optString("parent_id"));v.put("type_id",r.optString("type_id"));v.put("recurrence",Recurrences.series(r)?r.optString("recurrence"):"");
+        v.put("updated_at",r.optBoolean("deleted")?r.optString("deleted_at",r.optString("updated_at")):r.optString("updated_at"));v.put("completed",r.optString("completed"));v.put("end_at",endIndex(r));v.put("due_date",r.optString("due_date"));v.put("parent_id",r.optString("parent_id"));v.put("type_id",r.optString("type_id"));v.put("recurrence",Recurrences.series(r)?r.optString("recurrence"):"");
         getWritableDatabase().insertWithOnConflict("records",null,v,SQLiteDatabase.CONFLICT_REPLACE);
         try{MarkdownFiles.update(context,r);}catch(java.io.IOException e){throw new JSONException("记录已保存，但 .md 文件写入失败："+e.getMessage());}
         if(dirty&&!batchWrite)SyncJob.request(context);
@@ -108,14 +112,49 @@ public final class Data extends SQLiteOpenHelper {
             bounded.put(old.optString("revision"));r.put("ancestors",bounded);
             r.put("revision",UUID.randomUUID().toString());
         }
+        if(old!=null&&old.optBoolean("purged")&&(!r.optBoolean("deleted")||!r.optBoolean("purged")))
+            throw new JSONException("事项已彻底删除");
+        if(!r.optBoolean("deleted")){r.remove("deleted_at");r.remove("purged");}
+        else if(!r.has("deleted_at"))r.put("deleted_at",Instant.now().toString());
         boolean remember=r.optBoolean("_undo_record")||(undoBefore!=null&&!undoBefore.optBoolean("deleted")&&r.optBoolean("deleted"));boolean skip=r.optBoolean("_undo_skip");String source=r.optString("_undo_source");r.remove("_undo_record");r.remove("_undo_source");r.remove("_undo_skip");
         if(remember&&!skip)try{UndoHistory.record(context,undoBefore,r,source);}catch(Exception e){throw new JSONException("未能保存撤销记录，操作未执行："+e.getMessage());}
+        if(r.optBoolean("purged"))try{UndoHistory.forget(context,r.getString("id"));}
+        catch(Exception e){throw new JSONException("未能清理撤销快照："+e.getMessage());}
         r.put("updated_at",Instant.now().toString());put(r,true,version(r.getString("id")));
     }
+    private static final String RECOVERABLE = "deleted=1 AND preview NOT LIKE '%\"purged\":true%'";
+
+    synchronized void expireTrash()throws JSONException {
+        String cutoff=Instant.now().minus(java.time.Duration.ofDays(30)).toString();
+        while(true){
+            java.util.List<String> ids=new java.util.ArrayList<>();
+            try(Cursor cursor=getReadableDatabase().rawQuery(
+                    "SELECT id FROM records WHERE "+RECOVERABLE+" AND julianday(updated_at)<=julianday(?) LIMIT 50",
+                    new String[]{cutoff})){
+                while(cursor.moveToNext())ids.add(cursor.getString(0));
+            }
+            for(String id:ids)purgeDeleted(find(id));
+            if(ids.size()<50)return;
+        }
+    }
+
+    synchronized void purgeDeleted(JSONObject item)throws JSONException {
+        JSONObject latest=find(item.getString("id"));
+        if(latest==null||!latest.optBoolean("deleted")||latest.optBoolean("purged")
+                ||!latest.optString("revision").equals(item.optString("revision")))
+            throw new JSONException("记录已变化，请刷新回收站");
+        JSONObject tombstone=new JSONObject().put("title","").put("deleted",true).put("purged",true).put("ancestors",new JSONArray())
+                .put("deleted_at",latest.optString("deleted_at",latest.optString("updated_at")));
+        for(String key:new String[]{"id","kind","tf_id","tf_table","series_id","occurrence_date"})
+            if(latest.has(key))tombstone.put(key,latest.get(key));
+        save(tombstone.put("_undo_skip",true));
+    }
+
     synchronized JSONArray trashPage(int offset)throws JSONException{
+        expireTrash();
         JSONArray rows=new JSONArray();
         try(Cursor cursor=getReadableDatabase().rawQuery(
-                "SELECT preview FROM records WHERE deleted=1 ORDER BY updated_at DESC,id LIMIT 50 OFFSET ?",
+                "SELECT preview FROM records WHERE "+RECOVERABLE+" ORDER BY updated_at DESC,id LIMIT 50 OFFSET ?",
                 new String[]{Integer.toString(Math.max(0,offset))})){
             while(cursor.moveToNext())rows.put(new JSONObject(cursor.getString(0)));
         }
@@ -123,7 +162,7 @@ public final class Data extends SQLiteOpenHelper {
     }
     synchronized void restoreDeleted(JSONObject item)throws Exception{
         JSONObject latest=find(item.getString("id"));
-        if(latest==null||!latest.optBoolean("deleted")||!latest.optString("revision").equals(item.optString("revision")))
+        if(latest==null||!latest.optBoolean("deleted")||latest.optBoolean("purged")||!latest.optString("revision").equals(item.optString("revision")))
             throw new JSONException("记录已变化，请刷新回收站");
         save(latest.put("deleted",false));
     }
@@ -236,7 +275,20 @@ public final class Data extends SQLiteOpenHelper {
         copy.remove("tf_id");copy.remove("tf_table");copy.remove("tf_raw");if(copy.optString("kind").equals("type"))copy.put("system_type",false);
         put(copy,true,0);
     }
-    public synchronized boolean remote(JSONObject r,long v)throws JSONException{if(r.has("_dayflow_preview"))throw new JSONException("远程记录包含设备私有字段");String id=r.getString("id");if(v<=version(id))return false;JSONObject local=find(id);boolean dirty=false;try(Cursor c=getReadableDatabase().rawQuery("SELECT dirty FROM records WHERE id=?",new String[]{id})){dirty=c.moveToFirst()&&c.getInt(0)==1;}if(local!=null&&dirty&&!local.optString("revision").equals(r.optString("revision"))){if(contains(local.optJSONArray("ancestors"),r.optString("revision"))){ContentValues values=new ContentValues();values.put("version",v);getWritableDatabase().update("records",values,"id=?",new String[]{id});return false;}if(!contains(r.optJSONArray("ancestors"),local.optString("revision"))){conflictCopy(local);put(r,false,v);return true;}}put(r,false,v);return false;}
+    public synchronized boolean remote(JSONObject r,long v)throws JSONException{if(r.has("_dayflow_preview"))throw new JSONException("远程记录包含设备私有字段");String id=r.getString("id");if(v<=version(id))return false;JSONObject local=find(id);
+        if(r.optBoolean("deleted")&&r.optBoolean("purged")){
+            try{UndoHistory.forget(context,id);}catch(Exception e){throw new JSONException(e.getMessage());}
+            put(r,false,v);return false;
+        }
+        if(local!=null&&local.optBoolean("deleted")&&local.optBoolean("purged")){
+            JSONArray history=local.optJSONArray("ancestors");
+            JSONArray next=new JSONArray();
+            if(history!=null)for(int i=Math.max(0,history.length()-254);i<history.length();i++)next.put(history.optString(i));
+            next.put(r.getString("revision"));
+            local.put("ancestors",next).put("revision",UUID.randomUUID().toString());
+            put(local,true,v);return false;
+        }
+        boolean dirty=false;try(Cursor c=getReadableDatabase().rawQuery("SELECT dirty FROM records WHERE id=?",new String[]{id})){dirty=c.moveToFirst()&&c.getInt(0)==1;}if(local!=null&&dirty&&!local.optString("revision").equals(r.optString("revision"))){if(contains(local.optJSONArray("ancestors"),r.optString("revision"))){ContentValues values=new ContentValues();values.put("version",v);getWritableDatabase().update("records",values,"id=?",new String[]{id});return false;}if(!contains(r.optJSONArray("ancestors"),local.optString("revision"))){conflictCopy(local);put(r,false,v);return true;}}put(r,false,v);return false;}
     public synchronized boolean seen(String hash) {
         SQLiteDatabase db=getWritableDatabase();db.delete("seen","created<?",new String[]{Long.toString(System.currentTimeMillis()-7L*86400000)});
         ContentValues v=new ContentValues();v.put("hash",hash);v.put("created",System.currentTimeMillis());

@@ -4,11 +4,11 @@
 
 **不注册、不联网、不部署服务器，也能使用本地核心功能。** AI、天气、同步和更新检查均为可选联网能力。
 
-**当前 Android： [1.4.2 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.4.2/PlanAloud-android.apk)** · [发布页](https://github.com/cniv14/PlanAloud/releases/tag/v1.4.2) · [使用说明](docs/Android-1.4.2.md)
+**当前 Android： [1.5.0 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.0/PlanAloud-android.apk)** · [发布页](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.0) · [使用说明](docs/Android-1.5.0.md)
 
-**Android 1.4.2 · 序言 / Plan Aloud：** 服务端天气优先、单双列桌面挂件、收集箱审批与回收站。详见 [1.4.2 使用说明](docs/Android-1.4.2.md)。
+**Android 1.5.0 · 序言 / Plan Aloud：** 半透明悬浮助手、月历节日滚动、挂件遮罩、聊天内指令与回收站改进。Android 安装包约 5.2 MB。
 
-1.3.2将AI助手、完整Markdown、黄历和语音改为内嵌模块，不再单独安装插件APK。在设置→统一更新中一次配置GitHub或登录服务端来源、自动检查与回退。插件逻辑用签名热更新包更新；基础安装包约8.7MB，4个代码包合计约260KB。Android 9及以上可热加载模块；Android 8使用内置功能并通过主包升级。
+1.3.2将AI助手、完整Markdown、黄历和语音改为内嵌模块，不再单独安装插件APK。在设置→统一更新中一次配置GitHub或登录服务端来源、自动检查与回退。插件逻辑用签名热更新包更新；4个代码包合计约260KB。Android 9及以上可热加载模块；Android 8使用内置功能并通过主包升级。
 
 助手支持左右聊天气泡、主题色矢量图标、点击图片预览、直接从对话生成课表草稿、修改与软删除现有安排。课表/通知仍需人工核验，助手变更和删除支持版本校验撤销。收集箱可按软件/群聊一键交给AI，见[新版说明](docs/Android-1.3.2.md)。
 

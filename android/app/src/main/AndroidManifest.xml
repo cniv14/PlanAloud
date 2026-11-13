@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <queries><intent><action android:name="app.planaloud.action.EXTENSION" /></intent><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent></queries>
@@ -102,6 +105,12 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/agenda_widget" />
         </receiver>
+        <activity android:name=".FloatingAssistantActivity" android:exported="false" android:excludeFromRecents="true"
+            android:taskAffinity="app.planaloud.floating" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <service android:name=".FloatingAssistant" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled visible floating assistant and screenshot entry" />
+        </service>
+        <service android:name=".ScreenFrame" android:exported="false" android:foregroundServiceType="mediaProjection" />
         <service android:name=".AlarmSound" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <receiver android:name=".ReminderReceiver" android:exported="false">
             <intent-filter><action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" /><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /><action android:name="android.intent.action.BOOT_COMPLETED" /><action android:name="android.intent.action.TIME_SET" /><action android:name="android.intent.action.TIMEZONE_CHANGED" /></intent-filter>

@@ -10,10 +10,37 @@ final class AssistantPlugin {
  static void review(MainActivity a,JSONObject record,String prompt){try{open(a,Data.get(a).expanded(record),prompt);}catch(Exception e){a.message(e.getMessage());}}
  private static void open(MainActivity a,JSONObject context,String seed){
   if(!DocumentPlugins.available(a,PACKAGE)){a.message("AI助手已停用，请在扩展管理中开启");ExtensionHub.show(a);return;}
-  try{Network.endpoint(a.prefs.getString("api_url",""),true);if(Secrets.get(a,"api_key").isEmpty())throw new Exception("请先配置AI模型与密钥");
-   String token=begin(a,context,false);
-   a.startActivityForResult(DocumentPlugins.appearance(a,new Intent("app.planaloud.action.ASSISTANT").setComponent(new ComponentName(a,PACKAGE+".MainActivity")).putExtra("dayflow_protocol",2).putExtra("dayflow_seed_message",seed).putExtra("dayflow_review_only",context!=null).putExtra("dayflow_timetable",context!=null&&context.has("timetable_config")).putExtra("dayflow_session",token).putExtra("dayflow_model",a.prefs.getString("model","")).putExtra("dayflow_provider",a.prefs.getString("ai_provider","自定义"))),REQUEST);
-  }catch(Exception e){close(a);a.message(e.getMessage());AiSettings.show(a);}
+  try{
+   validateConfig(a);
+   SharedPreferences p=prefs(a);
+   Intent intent=DocumentPlugins.appearance(a,new Intent("app.planaloud.action.ASSISTANT")
+       .setComponent(new ComponentName(a,PACKAGE+".MainActivity"))
+       .putExtra("dayflow_protocol",2).putExtra("dayflow_seed_message",seed).putExtra("dayflow_review_only",context!=null)
+       .putExtra("dayflow_timetable",context!=null&&context.has("timetable_config"))
+       .putExtra("dayflow_model",p.getString("model","")).putExtra("dayflow_provider",p.getString("ai_provider","自定义")));
+   if(ThemeColors.usesProvider(a))intent.putExtra("dayflow_palette_style",ProviderAppearance.current(p).style);
+   a.startActivityForResult(intent.putExtra("dayflow_session",begin(a,context,false)),REQUEST);
+  }catch(Exception e){a.message(e.getMessage());AiSettings.show(a);}
+ }
+
+ private static void validateConfig(Context c)throws Exception{
+   if(!prefs(c).getBoolean("plugin_enabled_"+PACKAGE,true))throw new IOException("请在扩展管理中开启 AI 助手");
+   Network.endpoint(prefs(c).getString("api_url",""),true);
+   if(Secrets.get(c,"api_key").isEmpty())throw new IOException("请在序言设置中配置 AI 模型和 API Key");
+ }
+
+ static synchronized String floatingSession(Context c,String previous)throws Exception{
+   validateConfig(c);
+   String current=prefs(c).getString("assistant_session","");
+   if(!current.isEmpty()&&prefs(c).getLong("assistant_expiry",0)>System.currentTimeMillis()){
+      if(current.equals(previous))return current;
+      throw new IOException("请先退出正在使用的序言 AI 对话");
+   }
+   return begin(c,null,false);
+ }
+
+ static synchronized void closeFloating(Context c,String token){
+   if(token!=null&&token.equals(prefs(c).getString("assistant_session","")))close(c);
  }
  private static final java.util.concurrent.locks.ReentrantLock cli=new java.util.concurrent.locks.ReentrantLock();
  private static synchronized String begin(Context c,JSONObject context,boolean command)throws Exception{
@@ -52,7 +79,14 @@ final class AssistantPlugin {
    JSONObject reply=Network.request(endpoint+"/chat/completions",body,Secrets.get(c,"api_key"),prefs(c).getInt("ai_timeout",60)).getJSONArray("choices").getJSONObject(0).getJSONObject("message");
    synchronized(AssistantPlugin.class){authorize(c,token);File dir=new File(c.getCacheDir(),"assistant-replies");if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("无法创建对话缓存");File file=new File(dir,prefs(c).getString("assistant_session_id","")+".json");try(Writer out=new OutputStreamWriter(new FileOutputStream(file),java.nio.charset.StandardCharsets.UTF_8)){out.write(reply.toString());}Uri shared=FileProvider.getUriForFile(c,"app.planaloud.files",file);Bundle result=new Bundle();result.putInt("status",200);result.putString("response_uri",shared.toString());return result;}
   }
-  synchronized(AssistantPlugin.class){authorize(c,token);JSONObject input;if(extras.containsKey("request_uri")){Uri uri=Uri.parse(extras.getString("request_uri"));if(!"content".equals(uri.getScheme())||!"app.planaloud.assistant.files".equals(uri.getAuthority()))throw new SecurityException("无效的工具参数文件");try(InputStream in=c.getContentResolver().openInputStream(uri)){input=new JSONObject(MarkdownFiles.read(in));}}else input=new JSONObject(extras.getString("json","{}"));if(method.equals("assistant_tool"))value=tool(c,input);else if(method.equals("assistant_review_confirm")){String action=input.getString("command");if(!action.equals("inbox.confirm")&&!action.equals("course.confirm"))throw new SecurityException("无效聊天确认");String id=prefs(c).getString("assistant_session_id","");value=DayCommands.execute(c,action,input.getJSONObject("args"),new DayCommands.Access("agent:"+id,id,true,prefs(c).getBoolean("assistant_review_only",false),true));}else if(method.equals("assistant_command_approve"))value=DayCommands.approve(c,input.getString("token"),prefs(c).getString("assistant_session_id",""),input.getBoolean("approved"));else if(method.equals("assistant_undo_last"))value=new JSONObject().put("message",UndoHistory.latestAssistant(c));else if(method.equals("assistant_undo"))value=undo(c,input);else if(method.equals("assistant_status"))value=new JSONObject().put("created",new JSONObject(prefs(c).getString("assistant_created","{}")));else throw new Exception("未知插件方法");}
+  synchronized(AssistantPlugin.class){authorize(c,token);JSONObject input;if(extras.containsKey("request_uri")){Uri uri=Uri.parse(extras.getString("request_uri"));if(!"content".equals(uri.getScheme())||!"app.planaloud.assistant.files".equals(uri.getAuthority()))throw new SecurityException("无效的工具参数文件");try(InputStream in=c.getContentResolver().openInputStream(uri)){input=new JSONObject(MarkdownFiles.read(in));}}else input=new JSONObject(extras.getString("json","{}"));if(method.equals("assistant_local_command")){
+   String command=input.getString("command");
+   JSONObject args=input.optJSONObject("args");if(args==null)args=new JSONObject();
+   String id=prefs(c).getString("assistant_session_id","");
+   if(prefs(c).getBoolean("assistant_review_only",false))throw new IOException("请在普通对话中运行本地指令");
+   if(command.equals("screen.open"))value=new JSONObject().put("screen",CommandScreen.validPage(args.getString("page")));
+   else value=DayCommands.execute(c,command,args,new DayCommands.Access("chat:"+id,id,false,false,false));
+  }else if(method.equals("assistant_tool"))value=tool(c,input);else if(method.equals("assistant_review_confirm")){String action=input.getString("command");if(!action.equals("inbox.confirm")&&!action.equals("course.confirm"))throw new SecurityException("无效聊天确认");String id=prefs(c).getString("assistant_session_id","");value=DayCommands.execute(c,action,input.getJSONObject("args"),new DayCommands.Access("agent:"+id,id,true,prefs(c).getBoolean("assistant_review_only",false),true));}else if(method.equals("assistant_command_approve"))value=DayCommands.approve(c,input.getString("token"),prefs(c).getString("assistant_session_id",""),input.getBoolean("approved"));else if(method.equals("assistant_undo_last"))value=new JSONObject().put("message",UndoHistory.latestAssistant(c));else if(method.equals("assistant_undo"))value=undo(c,input);else if(method.equals("assistant_status"))value=new JSONObject().put("created",new JSONObject(prefs(c).getString("assistant_created","{}")));else throw new Exception("未知插件方法");}
   Bundle result=new Bundle();result.putInt("status",200);result.putString("json",value.toString());return result;
  }
  private static JSONObject tool(Context c,JSONObject input)throws Exception{

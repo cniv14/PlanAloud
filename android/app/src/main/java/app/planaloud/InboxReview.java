@@ -42,6 +42,7 @@ final class InboxReview {
     static void trash(MainActivity a,int offset){
         LinearLayout page=a.fullPage("回收站",a::showInbox);
         page.addView(Ui.text(a,"回收站",24,true));
+        page.addView(Ui.help(a,"已删除记录保留 30 天。彻底删除后会同步删除标记。"));
         page.addView(Ui.button(a,"最近操作与撤销",false,()->UndoHistory.show(a,()->trash(a,offset))));
         try{
             JSONArray rows=Data.get(a).trashPage(offset);
@@ -54,6 +55,13 @@ final class InboxReview {
                     Data.get(a).restoreDeleted(record);
                     return "已恢复";
                 },()->trash(a,offset))),new LinearLayout.LayoutParams(Ui.dp(a,88),-2));
+                row.addView(Ui.iconButton(a,"",android.R.drawable.ic_menu_delete,false,()->{
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+                            .setTitle("彻底删除").setMessage(record.optString("title")+" 将无法从回收站恢复。")
+                            .setNegativeButton("取消",null).setPositiveButton("彻底删除",(dialog,which)->
+                                a.job(()->{Data.get(a).purgeDeleted(record);return "已彻底删除";},()->trash(a,0))).show();
+                }),new LinearLayout.LayoutParams(Ui.dp(a,50),-2));
+                row.getChildAt(row.getChildCount()-1).setContentDescription("彻底删除");
             }
             LinearLayout nav=Ui.row(a);page.addView(nav);
             if(offset>0)Ui.cell(a,nav,Ui.button(a,"上一页",false,()->trash(a,Math.max(0,offset-50))));

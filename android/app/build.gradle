@@ -9,8 +9,8 @@ android {
         applicationId 'app.planaloud'
         minSdk 26
         targetSdk 36
-        versionCode 142
-        versionName '1.4.2'
+        versionCode 150
+        versionName '1.5.0'
         testInstrumentationRunner 'app.planaloud.SmokeTest'
     }
     compileOptions {
@@ -32,7 +32,14 @@ android {
             }
         }
     }
-    buildTypes { release { signingConfig signingConfigs.release } }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
     sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/thirdPartyAssets').get().asFile)
 }
 tasks.register('generateThirdPartyNotices', Copy) {

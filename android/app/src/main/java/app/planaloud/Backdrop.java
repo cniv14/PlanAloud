@@ -9,6 +9,24 @@ import android.view.View;
 public final class Backdrop extends View {
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF target=new RectF();
+    private RadialGradient upperLight,lowerLight;
+    @Override protected void onSizeChanged(int width,int height,int oldWidth,int oldHeight){
+        super.onSizeChanged(width,height,oldWidth,oldHeight);
+        updateGlassLights();
+    }
+
+    private void updateGlassLights(){
+        int width=getWidth(),height=getHeight();
+        if(width==0||height==0){upperLight=null;lowerLight=null;return;}
+        boolean dark=LiquidGlass.dark(getContext());
+        int upperAlpha=dark?78:68;
+        int lowerAlpha=dark?68:56;
+        upperLight=new RadialGradient(width*.80f,height*.12f,width*1.15f,
+                LiquidGlass.tint(accent,upperAlpha),LiquidGlass.tint(accent,0),Shader.TileMode.CLAMP);
+        int secondary=Ui.color(getContext(),com.google.android.material.R.attr.colorTertiary);
+        lowerLight=new RadialGradient(width*.88f,height*.75f,width*.9f,
+                LiquidGlass.tint(secondary,lowerAlpha),LiquidGlass.tint(secondary,0),Shader.TileMode.CLAMP);
+    }
     private Bitmap bitmap,previous;private boolean active,motion,powerSave;private long start,powerChecked,fadeAt;private int surface,accent,opacity;
     private String current="";private final SharedPreferences prefs;private final PowerManager power;
     private final java.util.concurrent.ExecutorService loader=java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -16,13 +34,13 @@ public final class Backdrop extends View {
     private final Runnable tick=()->refreshWallpaper();
     public Backdrop(Context c){super(c);prefs=c.getSharedPreferences("settings",0);power=(PowerManager)c.getSystemService(Context.POWER_SERVICE);setLayerType(View.LAYER_TYPE_HARDWARE,null);}
     public void load(){
-        surface=Ui.surface(getContext());accent=Ui.primary(getContext());
+        surface=Ui.surface(getContext());accent=Ui.primary(getContext());updateGlassLights();
         motion=android.animation.ValueAnimator.areAnimatorsEnabled()&&prefs.getBoolean("motion",false)&&!prefs.getBoolean("reduce_motion",false);opacity=prefs.getInt("opacity",86);
         if(Build.VERSION.SDK_INT>=31)setRenderEffect(prefs.getBoolean("blur",true)?RenderEffect.createBlurEffect(18,18,Shader.TileMode.CLAMP):null);
         refreshWallpaper();invalidate();
     }
     private void refreshWallpaper(){
-        removeCallbacks(tick);if(active)postDelayed(tick,30000);if(loading||released)return;
+        removeCallbacks(tick);if(active&&getWindowVisibility()==VISIBLE)postDelayed(tick,30000);if(loading||released)return;
         loading=true;int token=generation;String old=current;Context context=getContext().getApplicationContext();
         loader.execute(()->{
             java.io.File file=WallpaperRules.selected(context);String key=file.isFile()?file.getPath()+":"+file.lastModified()+":"+file.length():"";
@@ -39,11 +57,22 @@ public final class Backdrop extends View {
     protected void onDraw(Canvas canvas){super.onDraw(canvas);int w=getWidth(),h=getHeight();canvas.drawColor(surface);
         int alpha=255;if(previous!=null){alpha=(int)Math.min(255,(SystemClock.uptimeMillis()-fadeAt)*255/480);if(alpha<255){drawImage(canvas,previous,w,h,255);if(active)postInvalidateOnAnimation();}else{previous.recycle();previous=null;}}
         drawImage(canvas,bitmap,w,h,alpha);
-        boolean enabled=motion;if(bitmap!=null){paint.setColor(Color.argb(opacity*255/100,Color.red(surface),Color.green(surface),Color.blue(surface)));canvas.drawRect(0,0,w,h,paint);}if(!enabled)return;
-        long now=SystemClock.uptimeMillis();if(active&&now-powerChecked>1000){powerSave=power.isPowerSaveMode();powerChecked=now;}boolean moving=active&&!powerSave;
+        boolean enabled=motion;if(bitmap!=null){paint.setColor(Color.argb(opacity*255/100,Color.red(surface),Color.green(surface),Color.blue(surface)));canvas.drawRect(0,0,w,h,paint);}if(upperLight!=null){
+            paint.setAlpha(255);
+            paint.setShader(upperLight);canvas.drawRect(0,0,w,h,paint);
+            paint.setShader(lowerLight);canvas.drawRect(0,0,w,h,paint);
+            paint.setShader(null);
+        }
+        if(!enabled)return;
+        long now=SystemClock.uptimeMillis();if(active&&now-powerChecked>1000){powerSave=power.isPowerSaveMode();powerChecked=now;}boolean moving=active&&getWindowVisibility()==VISIBLE&&!powerSave;
         float t=moving?(SystemClock.uptimeMillis()-start)/12000f:0;
         paint.setColor(Color.argb(18,Color.red(accent),Color.green(accent),Color.blue(accent)));canvas.drawCircle(w*(.18f+.12f*(float)Math.sin(t)),h*.25f,w*.7f,paint);canvas.drawCircle(w*.95f,h*(.7f+.12f*(float)Math.cos(t)),w*.8f,paint);
         if(moving)postInvalidateDelayed(33);
+    }
+    @Override protected void onWindowVisibilityChanged(int visibility){
+        super.onWindowVisibilityChanged(visibility);
+        if(visibility==VISIBLE&&active&&!released)refreshWallpaper();
+        else removeCallbacks(tick);
     }
     protected void onDetachedFromWindow(){active=false;removeCallbacks(tick);super.onDetachedFromWindow();}
     public void release(){active=false;released=true;generation++;removeCallbacks(tick);loader.shutdown();if(previous!=null){previous.recycle();previous=null;}if(Build.VERSION.SDK_INT>=31)setRenderEffect(null);if(bitmap!=null){bitmap.recycle();bitmap=null;}}

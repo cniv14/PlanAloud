@@ -30,9 +30,17 @@ public final class SettingsPanels {
         Ui.cell(a,first,Ui.tile(a,"同步","备份、云端、局域网",this::sync));
         Ui.cell(a,second,Ui.tile(a,"AI 模型","厂商与模型",this::api));
         Ui.cell(a,second,Ui.tile(a,"更新","本体与内嵌模块",this::updates));
-        form.addView(Ui.button(a,"打开指令与更多功能",true,()->CommandScreen.show(a)));
+        form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);
+        Spinner floatingMask=TaskTypes.spinner(a,form,"悬浮窗透明遮罩",Arrays.asList("应用主题色（默认）","中性色"));
+        floatingMask.setSelection("neutral".equals(p.getString(FloatingAssistant.MASK_COLOR,"theme"))?1:0);
+        floatingMask.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,android.view.View view,int position,long id){
+                p.edit().putString(FloatingAssistant.MASK_COLOR,position==0?"theme":"neutral").apply();
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent){}
+        });
         toggle(form,"减少序言动效","保留布局，关闭主要过渡与壁纸切换动画。",p.getBoolean("reduce_motion",false),on->p.edit().putBoolean("reduce_motion",on).apply());
         toggle(form,"紧凑列表与表格","减少卡片和表格留白，操作区域仍至少48dp。",p.getBoolean("compact_ui",false),on->{p.edit().putBoolean("compact_ui",on).apply();a.recreate();});
         form.addView(Ui.tile(a,"应用图标",ProviderAppearance.current(p).label,()->ProviderAppearance.show(a)));
@@ -45,7 +53,7 @@ public final class SettingsPanels {
         page.addView(Ui.help(a,"单列展开标题、时间、截止倒计时、地点和备注。两列为紧凑排布，窄尺寸自动使用单列。"));
         Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","grid"))?1:0);
         List<String> modes=Arrays.asList("glass","solid","image","wallpaper");Spinner style=TaskTypes.spinner(a,page,"背景样式",Arrays.asList("液态玻璃","主题实色","自选图片 + 玻璃","跟随应用壁纸 + 玻璃"));style.setSelection(Math.max(0,modes.indexOf(p.getString("widget_background","glass"))));
-        TextInputEditText tint=Ui.field(a,page,"图片磨砂遮罩 · 48–94%",Integer.toString(p.getInt("widget_tint",73)),false);tint.setInputType(InputType.TYPE_CLASS_NUMBER);
+        TextInputEditText tint=Ui.field(a,page,"玻璃底层遮罩 · 48–94%",Integer.toString(p.getInt("widget_tint",73)),false);tint.setInputType(InputType.TYPE_CLASS_NUMBER);
         LinearLayout pair=Ui.row(a);page.addView(pair);
         Ui.cell(a,pair,Ui.button(a,"应用样式",true,()->{try{int value=Integer.parseInt(tint.getText().toString());if(value<48||value>94)throw new Exception("遮罩需在 48–94%");String mode=modes.get(style.getSelectedItemPosition());if(mode.equals("image")&&!WallpaperImages.widget(a).isFile())throw new Exception("请先选择背景图");p.edit().putString("widget_layout",layout.getSelectedItemPosition()==0?"list":"grid").putString("widget_background",mode).putInt("widget_tint",value).apply();AgendaWidget.refresh(a);a.message("已更新桌面小组件");}catch(Exception e){a.message(e.getMessage());}}));
         Ui.cell(a,pair,Ui.button(a,"选择背景图",false,()->a.pickFile(120,"image/*")));

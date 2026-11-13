@@ -20,8 +20,8 @@ public final class MonthBrowser {
    Map<LocalDate,Integer> counts=new HashMap<>();if(appointments)try{JSONArray rows=Data.get(a).range(visible[0].atDay(1),visible[0].plusMonths(1).atDay(1),false);for(int i=0;i<rows.length();i++){LocalDateTime at=PlanTime.start(rows.getJSONObject(i));if(at!=null)counts.put(at.toLocalDate(),counts.getOrDefault(at.toLocalDate(),0)+1);}}catch(Exception e){a.message("读取安排失败："+e.getMessage());}
    LinearLayout header=Ui.row(a);for(String day:new String[]{"一","二","三","四","五","六","日"}){TextView label=Ui.help(a,day);label.setGravity(Gravity.CENTER);header.addView(label,new LinearLayout.LayoutParams(0,-2,1));}grid.addView(header);
    LocalDate first=visible[0].atDay(1);int offset=first.getDayOfWeek().getValue()-1;
-   for(int row=0;row<6;row++){LinearLayout line=Ui.row(a);grid.addView(line);for(int col=0;col<7;col++){
-    int number=row*7+col-offset+1;LinearLayout cell=Ui.column(a);cell.setGravity(Gravity.CENTER);cell.setMinimumHeight(Ui.dp(a,70));line.addView(cell,new LinearLayout.LayoutParams(0,-2,1));if(number<1||number>visible[0].lengthOfMonth())continue;
+   for(int row=0;row<(offset+visible[0].lengthOfMonth()+6)/7;row++){LinearLayout line=Ui.row(a);grid.addView(line);for(int col=0;col<7;col++){
+    int number=row*7+col-offset+1;LinearLayout cell=Ui.column(a);cell.setGravity(Gravity.CENTER);cell.setMinimumHeight(Ui.dp(a,48));line.addView(cell,new LinearLayout.LayoutParams(0,-2,1));if(number<1||number>visible[0].lengthOfMonth())continue;
     LocalDate date=visible[0].atDay(number);CalendarDay.render(a,cell,date,date.equals(selected[0]),counts.getOrDefault(date,0),()->{selected[0]=date;render[0].run();},appointments?render[0]:null);
    }}
   };

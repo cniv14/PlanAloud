@@ -41,6 +41,7 @@ public final class Network {
     }
     public static synchronized String sync(Context c) throws Exception {
         if(Thread.currentThread().isInterrupted())throw new java.io.InterruptedIOException("系统已暂停同步，本地内容保留");
+        Data.get(c).expireTrash();
         if(c.getSharedPreferences("settings",0).getString("sync_backend","dayflow").equals("taskflow"))return TaskFlowSync.sync(c);
         return syncDayFlow(c);
     }

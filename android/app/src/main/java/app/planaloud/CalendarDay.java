@@ -15,11 +15,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 final class CalendarDay {
-    private static SharedPreferences annotations(MainActivity a) {
+    private static SharedPreferences annotations(android.content.Context a) {
         return a.getSharedPreferences("calendar_annotations", 0);
     }
 
-    static String annotation(MainActivity a, LocalDate date) {
+    static String annotation(android.content.Context a, LocalDate date) {
         return annotations(a).getString(date.toString(), "");
     }
 
@@ -33,6 +33,7 @@ final class CalendarDay {
                 .setNegativeButton("取消", null)
                 .setNeutralButton("清除", (dialog, which) -> {
                     annotations(a).edit().remove(date.toString()).apply();
+                    AgendaWidget.refresh(a);
                     refresh.run();
                 })
                 .setPositiveButton("保存", (dialog, which) -> {
@@ -41,6 +42,7 @@ final class CalendarDay {
                     if (text.isEmpty()) editor.remove(date.toString());
                     else editor.putString(date.toString(), text);
                     editor.apply();
+                    AgendaWidget.refresh(a);
                     refresh.run();
                 }).show();
     }
@@ -66,14 +68,18 @@ final class CalendarDay {
         cell.addView(day);
         cell.addView(line(a, lunar, 10, false));
         String annotation = annotation(a,date);
-        String marker = "";
-        for (String label : labels) {
-            if (!label.equals(annotation)) {marker=label;break;}
-        }
-        if (!holidayMarker.isEmpty() && !holidayMarker.equals(marker))
-            marker = holidayMarker + (marker.isEmpty() ? "" : " " + marker);
+        List<String> holidays = new ArrayList<>(labels);
+        holidays.remove(annotation);
+        holidays.remove(holidayMarker);
+        if (!holidayMarker.isEmpty()) holidays.add(0, holidayMarker);
+        String marker = String.join(" · ", holidays);
         if (count > 0) marker += marker.isEmpty() ? "•" : " •";
         TextView special = line(a, marker.isEmpty() ? " " : marker, 9, true);
+        if (android.animation.ValueAnimator.areAnimatorsEnabled() && !a.prefs.getBoolean("reduce_motion", false)) {
+            special.setEllipsize(TextUtils.TruncateAt.MARQUEE);
+            special.setMarqueeRepeatLimit(-1);
+            special.setSelected(true);
+        }
         boolean dark = AgendaWidget.dark(a);
         special.setTextColor(!marker.isEmpty() && !marker.equals("•") ? (dark ? 0xffffada6 : 0xffa12c34) : Ui.primary(a));
         cell.addView(special);
@@ -93,6 +99,7 @@ final class CalendarDay {
 
     private static TextView line(MainActivity a, String value, int size, boolean bold) {
         TextView view = Ui.text(a, value, size, bold);
+        view.setIncludeFontPadding(false);
         view.setGravity(Gravity.CENTER);
         view.setSingleLine();
         view.setEllipsize(TextUtils.TruncateAt.END);

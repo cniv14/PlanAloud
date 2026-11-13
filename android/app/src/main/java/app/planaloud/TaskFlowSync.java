@@ -32,6 +32,19 @@ final class TaskFlowSync {
         }
         void reconcile(String table,String id,JSONObject row,JSONObject incoming,boolean staged)throws Exception{
             String nativeId=incoming.getString("id");JSONObject local=db.find(nativeId),baseline=db.bridgeBase(namespace,nativeId,staged),before=baseline==null?null:baseline.optJSONObject("record");boolean remoteChanged=baseline==null||!TaskFlowRecords.canonical(row).equals(TaskFlowRecords.canonical(baseline.optJSONObject("remote")));boolean localChanged=local!=null&&(before==null||!TaskFlowRecords.same(local,before));if(before==null&&local!=null&&local.optBoolean("system_type")&&incoming.optBoolean("system_type")&&local.optString("title").equals(incoming.optString("title"))&&local.optString("icon").isEmpty()&&local.optString("color").isEmpty())localChanged=false;boolean collision=false,push=false;
+            if(incoming.optBoolean("deleted")&&incoming.optBoolean("purged")){
+                if(local==null||!TaskFlowRecords.same(local,incoming)){db.bridgeSave(incoming,local==null?"":local.optString("revision"));pulled++;}
+                db.bridgeStage(namespace,nativeId,new JSONObject().put("record",db.find(nativeId)).put("remote",row).put("pushed",false));
+                return;
+            }
+            if(local!=null&&local.optBoolean("deleted")&&local.optBoolean("purged")){
+                if(remoteChanged||localChanged){
+                    engine.apply(table,id,TaskFlowRecords.to(local,typeIds,scheduleIds,row));link.flush();row=engine.row(table,id);pushed++;
+                }
+                db.bridgeStage(namespace,nativeId,new JSONObject().put("record",local).put("remote",row).put("pushed",true));
+                return;
+            }
+
             if(local==null){db.bridgeSave(incoming,"");local=incoming;pulled++;}
             else if(remoteChanged){JSONObject merged=new JSONObject(local.toString());Set<String> keys=new HashSet<>();incoming.keys().forEachRemaining(keys::add);if(before!=null)before.keys().forEachRemaining(keys::add);for(String key:keys){if(key.equals("id")||key.equals("revision")||key.equals("ancestors")||key.equals("updated_at"))continue;Object remoteValue=incoming.has(key)?incoming.get(key):JSONObject.NULL,baseValue=before!=null&&before.has(key)?before.get(key):JSONObject.NULL,localValue=local.has(key)?local.get(key):JSONObject.NULL;boolean changedThere=before==null||!TaskFlowRecords.canonical(remoteValue).equals(TaskFlowRecords.canonical(baseValue));boolean changedHere=before==null?localChanged:!TaskFlowRecords.canonical(localValue).equals(TaskFlowRecords.canonical(baseValue));if(changedThere){if(changedHere&&!key.startsWith("tf_")&&!TaskFlowRecords.canonical(remoteValue).equals(TaskFlowRecords.canonical(localValue)))collision=true;if(incoming.has(key))merged.put(key,remoteValue);else merged.remove(key);}}
                 if(staged&&baseline!=null&&baseline.optBoolean("pushed")&&!TaskFlowRecords.same(local,incoming))collision=true;if(collision){db.bridgeConflict(local);conflicts++;}if(!TaskFlowRecords.same(local,merged)){Data.validate(merged);db.bridgeSave(merged,local.optString("revision"));local=merged;pulled++;}else{local.put("tf_id",id).put("tf_table",table).put("tf_raw",row);}push=localChanged;

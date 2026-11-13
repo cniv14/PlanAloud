@@ -10,6 +10,13 @@ final class UndoHistory {
   String key=UUID.randomUUID().toString();write(new AtomicFile(snapshot(c,key)),before==null?"null":before.toString());JSONArray list=entries(c),next=new JSONArray();next.put(new JSONObject().put("key",key).put("id",after.getString("id")).put("revision",after.getString("revision")).put("title",after.optString("title")).put("source",source).put("time",java.time.Instant.now().toString()).put("deleted",after.optBoolean("deleted")));
   for(int i=0;i<Math.min(29,list.length());i++)next.put(list.get(i));write(index(c),next.toString());for(int i=29;i<list.length();i++)snapshot(c,list.getJSONObject(i).getString("key")).delete();
  }
+ static synchronized void forget(Context c,String id)throws Exception{
+  JSONArray list=entries(c),next=new JSONArray();java.util.List<String> keys=new ArrayList<>();
+  for(int i=0;i<list.length();i++){JSONObject row=list.getJSONObject(i);if(id.equals(row.optString("id")))keys.add(row.getString("key"));else next.put(row);}
+  if(keys.isEmpty())return;
+  write(index(c),next.toString());
+  for(String key:keys)snapshot(c,key).delete();
+ }
  static String restoreRecord(Context c,String id,String revision)throws Exception{JSONArray list=entries(c);for(int i=0;i<list.length();i++){JSONObject entry=list.getJSONObject(i);if(id.equals(entry.optString("id"))&&revision.equals(entry.optString("revision")))return restore(c,entry.getString("key"));}throw new IOException("撤销记录已变化，请在最近操作中恢复");}
  static String latest(Context c,String source)throws Exception{JSONArray list=entries(c);for(int i=0;i<list.length();i++){JSONObject entry=list.getJSONObject(i);if(source==null||source.equals(entry.optString("source")))return restore(c,entry.getString("key"));}throw new IOException("没有可撤销的操作");}
  static String latestAssistant(Context c)throws Exception{
