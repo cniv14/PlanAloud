@@ -26,7 +26,7 @@ public final class SettingsPanels {
     public void root(LinearLayout form){
         form.addView(Ui.text(a,"设置",25,true));
         LinearLayout first=Ui.row(a),second=Ui.row(a);form.addView(first);form.addView(second);
-        Ui.cell(a,first,Ui.tile(a,"外观","主题、动态壁纸",this::appearance));
+        Ui.cell(a,first,Ui.tile(a,"外观","主题、壁纸、小组件",this::appearance));
         Ui.cell(a,first,Ui.tile(a,"同步","备份、云端、局域网",this::sync));
         Ui.cell(a,second,Ui.tile(a,"AI 模型","厂商与模型",this::api));
         Ui.cell(a,second,Ui.tile(a,"更新","本体与内嵌模块",this::updates));
@@ -36,11 +36,12 @@ public final class SettingsPanels {
         toggle(form,"减少序言动效","保留布局，关闭主要过渡与壁纸切换动画。",p.getBoolean("reduce_motion",false),on->p.edit().putBoolean("reduce_motion",on).apply());
         toggle(form,"紧凑列表与表格","减少卡片和表格留白，操作区域仍至少48dp。",p.getBoolean("compact_ui",false),on->{p.edit().putBoolean("compact_ui",on).apply();a.recreate();});
         form.addView(Ui.tile(a,"应用图标",ProviderAppearance.current(p).label,()->ProviderAppearance.show(a)));
+        form.addView(Ui.tile(a,"桌面小组件","单双列排布、背景和桌面添加",()->widget(this::appearance)));
         ThemeColors.settings(a,form);
         toggle(form,"动态流光","仅在前台运行，省电模式暂停。",p.getBoolean("motion",false),on->{p.edit().putBoolean("motion",on).apply();a.refreshBackdrop();});toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();}});form.addView(slider);
     }
-    public void widget(){
-        LinearLayout page=a.fullPage("桌面小组件",a::home);page.addView(Ui.text(a,"桌面小组件",24,true));
+    void widget(Runnable back){
+        LinearLayout page=a.fullPage("桌面小组件",back);page.addView(Ui.text(a,"桌面小组件",24,true));
         page.addView(Ui.help(a,"单列展开标题、时间、截止倒计时、地点和备注。两列为紧凑排布，窄尺寸自动使用单列。"));
         Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","grid"))?1:0);
         List<String> modes=Arrays.asList("glass","solid","image","wallpaper");Spinner style=TaskTypes.spinner(a,page,"背景样式",Arrays.asList("液态玻璃","主题实色","自选图片 + 玻璃","跟随应用壁纸 + 玻璃"));style.setSelection(Math.max(0,modes.indexOf(p.getString("widget_background","glass"))));
