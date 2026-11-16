@@ -31,8 +31,10 @@ public final class SettingsPanels {
         Ui.cell(a,second,Ui.tile(a,"AI 模型","厂商与模型",this::api));
         Ui.cell(a,second,Ui.tile(a,"更新","本体与内嵌模块",this::updates));
         form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
+        form.addView(Ui.button(a,"诊断与导出日志",false,()->Diagnostics.show(a)));
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);
+        form.addView(Ui.tile(a,"主界面栏目与列数","自定义栏目，笔记和收集箱默认隐藏",()->HomeLayout.show(a)));
         Spinner floatingMask=TaskTypes.spinner(a,form,"悬浮窗透明遮罩",Arrays.asList("应用主题色（默认）","中性色"));
         floatingMask.setSelection("neutral".equals(p.getString(FloatingAssistant.MASK_COLOR,"theme"))?1:0);
         floatingMask.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
@@ -68,14 +70,14 @@ public final class SettingsPanels {
         String source=p.getString("weather_source","");
         if(!OpenWeatherSources.cached(a,"").isEmpty())
             form.addView(Ui.help(a,"来源 "+(p.getBoolean("weather_via_server",false)?"序言服务端 / ":"")+source+" · "+p.getString("weather_time","").replace("T"," ")));
-        form.addView(Ui.help(a,"天气优先使用 Open-Meteo，服务不可用时自动切换到 MET Norway。可使用大致位置、搜索城市或输入经纬度。"));
+        form.addView(Ui.help(a,"天气优先使用 Open-Meteo，服务不可用时自动切换到 MET Norway。支持精确定位、搜索城市或输入经纬度；系统仅授权大致位置时使用大致位置。预报精度取决于天气服务网格。"));
         toggle(form,"优先使用序言服务端","连接序言账号后生效。服务端不可用时自动改用开放天气来源。",
                 p.getBoolean("weather_use_server",true),on->p.edit().putBoolean("weather_use_server",on).apply());
         if(!p.getString("lat","").isEmpty())
             form.addView(Ui.button(a,"刷新已选位置天气",false,()->a.job(()->Forecast.refresh(a),this::weather)));
-        form.addView(Ui.button(a,"使用当前位置获取天气",true,()->a.locationWeather.request()));
+        form.addView(Ui.button(a,"使用当前位置获取天气",true,()->a.locationWeather.requestPrecise()));
         toggle(form,"自动更新位置天气","打开应用时，缓存超过6小时才刷新。",p.getBoolean("auto_location",false),
-                on->{p.edit().putBoolean("auto_location",on).apply();if(on)a.locationWeather.request();});
+                on->{p.edit().putBoolean("auto_location",on).apply();if(on)a.locationWeather.requestPrecise();});
         form.addView(Ui.button(a,"搜索并选择城市",false,this::citySearch));
         form.addView(Ui.button(a,"输入经纬度",false,this::weatherCoordinates));
         TextView credit=Ui.help(a,"");

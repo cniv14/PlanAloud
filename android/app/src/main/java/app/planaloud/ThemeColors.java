@@ -11,7 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.color.DynamicColorsOptions;
-import com.google.android.material.color.utilities.Hct;
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textfield.TextInputEditText;
 import java.io.File;
 import java.util.Arrays;
@@ -58,7 +58,7 @@ final class ThemeColors {
         }
     }
 
-    static void apply(MainActivity activity) {
+    static void apply(android.app.Activity activity) {
         SharedPreferences prefs = activity.getSharedPreferences("settings", 0);
         String source = source(prefs);
         if (source.equals("provider")) {
@@ -90,8 +90,7 @@ final class ThemeColors {
         if (Build.VERSION.SDK_INT >= 31 && !source.equals("default")) {
             if (source.equals("custom") || source.equals("wallpaper") && prefs.contains("wallpaper_seed")) {
                 int seed = prefs.getInt(source.equals("custom") ? "custom_seed" : "wallpaper_seed", DEFAULT_SEED);
-                Hct color = Hct.fromInt(seed);
-                return Hct.from(color.getHue(), color.getChroma(), dark ? 80 : 40).toInt();
+                return MaterialColors.getColorRoles(seed, !dark).getAccent();
             }
             return context.getColor(dark ? android.R.color.system_accent1_200 : android.R.color.system_accent1_700);
         }

@@ -24,7 +24,7 @@ public final class ScreenFrame extends Service {
     private boolean finished;
 
     static File file(android.content.Context context,String id) {
-        return new File(new File(context.getCacheDir(),"screen-frames"),id+".jpg");
+        return new File(new File(context.getCacheDir(),"screen-frames"),id+".png");
     }
 
     @Override public int onStartCommand(Intent intent,int flags,int startId) {
@@ -75,8 +75,7 @@ public final class ScreenFrame extends Service {
     }
 
     private static android.util.Size bounded(int width,int height){
-        float ratio=Math.min(1f,1440f/Math.max(width,height));
-        return new android.util.Size(Math.max(1,Math.round(width*ratio)),Math.max(1,Math.round(height*ratio)));
+        return new android.util.Size(Math.max(1,width),Math.max(1,height));
     }
 
     private ImageReader newReader(android.util.Size size){
@@ -103,7 +102,7 @@ public final class ScreenFrame extends Service {
                     padded.copyPixelsFromBuffer(plane.getBuffer());
                     frame=Bitmap.createBitmap(padded,0,0,image.getWidth(),image.getHeight());
                     try(OutputStream stream=new FileOutputStream(output)){
-                        if(!frame.compress(Bitmap.CompressFormat.JPEG,88,stream))throw new IOException("截图写入失败");
+                        if(!frame.compress(Bitmap.CompressFormat.PNG,100,stream))throw new IOException("截图写入失败");
                     }
                 } finally {
                     if(frame!=null&&frame!=padded)frame.recycle();

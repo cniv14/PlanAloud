@@ -100,7 +100,7 @@ final class DayCommands {
     static JSONObject execute(Context c,String id,JSONObject args,Access x)throws Exception{
         Entry e=commands.get(id);if(e==null)throw new IOException("未知命令："+id+"；用 help 查看");
         if(x.ai&&!e.ai)throw new IOException("此命令只允许用户或已授权终端调用");
-        if(x.ai&&e.approval&&!x.approved&&!prefs(c).getBoolean("assistant_auto_approve",false)){
+        if(x.ai&&x.review&&e.approval&&!x.approved){
             String token=UUID.randomUUID().toString();
             String detail="";
             if(args.has("id")&&(id.startsWith("record.")||id.equals("inbox.confirm"))){JSONObject r=resolve(c,args);detail=r.optString("title")+" · "+PlanTime.label(r);}
@@ -121,20 +121,18 @@ final class DayCommands {
         return e.run.run(c,args,x);
     }
     static JSONObject approve(Context c,String token,String session,boolean allowed)throws Exception{
-        JSONObject item;
         synchronized(APPROVAL_LOCK){
-            JSONObject items=approvals(c);
-            item=items.optJSONObject(token);
-            if(item==null||(session!=null&&!item.optString("session").equals(session)))
-                throw new IOException("这条批准已处理或失效");
+            JSONObject items=approvals(c),item=items.optJSONObject(token);
+            if(item==null||(session!=null&&!item.optString("session").equals(session)))throw new IOException("这条批准已处理或失效");
+            JSONObject result=msg("已拒绝，未执行命令");
+            if(allowed){Access access=new Access(item.getString("source"),item.getString("session"),true,item.optBoolean("review"),true);result=execute(c,item.getString("command"),item.getJSONObject("args"),access);}
+            // A validation failure keeps the card available for correction and retry.
             items.remove(token);
-            if(!prefs(c).edit().putString(APPROVALS,items.toString()).commit())throw new IOException("未能更新待批准操作");
+            if(!prefs(c).edit().putString(APPROVALS,items.toString()).commit())throw new IOException("操作已处理，但未能更新确认状态，请刷新查看结果");
+            return result;
         }
-        if(!allowed)return msg("已拒绝，未执行命令");
-        Access access=new Access(item.getString("source"),item.getString("session"),true,item.optBoolean("review"),true);
-        return execute(c,item.getString("command"),item.getJSONObject("args"),access);
     }
-    private static JSONObject catalog(String query,Access x)throws Exception{JSONArray entries=new JSONArray();String key=query.toLowerCase(Locale.ROOT);for(Entry e:commands.values())if((!x.ai||e.ai)&&(e.id+e.help).toLowerCase(Locale.ROOT).contains(key))entries.put(new JSONObject().put("name",e.id).put("description",e.help).put("arguments",new JSONObject(e.example)).put("approval",e.approval));return new JSONObject().put("commands",entries);}
+    private static JSONObject catalog(String query,Access x)throws Exception{JSONArray entries=new JSONArray();String key=query.toLowerCase(Locale.ROOT);for(Entry e:commands.values())if((!x.ai||e.ai)&&(e.id+e.help).toLowerCase(Locale.ROOT).contains(key))entries.put(new JSONObject().put("name",e.id).put("description",e.help).put("arguments",new JSONObject(e.example)).put("approval",x.review&&e.approval));return new JSONObject().put("commands",entries);}
     static JSONObject msg(String value)throws JSONException{return new JSONObject().put("message",value);}
     static android.content.SharedPreferences prefs(Context c){return c.getSharedPreferences("settings",0);}
     private static LocalDate date(JSONObject a){return LocalDate.parse(a.optString("date",LocalDate.now().toString()));}
@@ -187,13 +185,13 @@ final class DayCommands {
     private static JSONObject setCapture(Context c,JSONObject a)throws Exception{
         android.content.SharedPreferences.Editor edit=prefs(c).edit();for(Iterator<String> it=a.keys();it.hasNext();){String key=it.next();Object value=a.get(key);if(CAPTURE_BOOL.contains(key)&&value instanceof Boolean)edit.putBoolean(key,(Boolean)value);else if(CAPTURE_TEXT.contains(key)&&value instanceof String){if(key.startsWith("capture_regex"))CaptureRules.validate((String)value);edit.putString(key,(String)value);}else throw new IOException("无效的收集规则："+key);}if(!edit.commit())throw new IOException("无法保存收集规则");return msg("已保存；系统通知读取授权需在 Android 设置中确认");
     }
-    private static final Set<String> BOOL=new HashSet<>(Arrays.asList("compact_ui","reduce_motion","dynamic_color","motion","blur","widget_inbox","sync_auto","updates_auto","hot_enabled","markdown_auto_open","swipe","assistant_auto_approve","plugin_enabled_app.planaloud.assistant","plugin_enabled_app.planaloud.markdown","plugin_enabled_app.planaloud.almanac","plugin_enabled_app.planaloud.voice"));
+    private static final Set<String> BOOL=new HashSet<>(Arrays.asList("home_today","home_schedule","home_notes","home_inbox","compact_ui","reduce_motion","dynamic_color","motion","blur","widget_inbox","sync_auto","updates_auto","hot_enabled","markdown_auto_open","swipe","assistant_auto_approve","plugin_enabled_app.planaloud.assistant","plugin_enabled_app.planaloud.markdown","plugin_enabled_app.planaloud.almanac","plugin_enabled_app.planaloud.voice"));
     private static final Map<String,List<String>> CHOICES=new LinkedHashMap<>();static{CHOICES.put("theme",Arrays.asList("system","light","dark"));CHOICES.put("widget_layout",Arrays.asList("list","grid"));CHOICES.put("widget_background",Arrays.asList("glass","solid","image","wallpaper"));CHOICES.put("updates_source",Arrays.asList("github","server"));CHOICES.put("sync_backend",Arrays.asList("dayflow","taskflow"));}
-    private static JSONObject settings(Context c)throws Exception{JSONObject out=new JSONObject();Map<String,?> values=prefs(c).getAll();for(String k:BOOL)if(values.containsKey(k))out.put(k,values.get(k));for(String k:CHOICES.keySet())if(values.containsKey(k))out.put(k,values.get(k));out.put("widget_tint",prefs(c).getInt("widget_tint",73));return out;}
+    private static JSONObject settings(Context c)throws Exception{JSONObject out=new JSONObject();Map<String,?> values=prefs(c).getAll();for(String k:BOOL)if(values.containsKey(k))out.put(k,values.get(k));for(String k:CHOICES.keySet())if(values.containsKey(k))out.put(k,values.get(k));out.put("widget_tint",prefs(c).getInt("widget_tint",73)).put("home_columns",prefs(c).getInt("home_columns",0));return out;}
     private static JSONObject setting(Context c,JSONObject a,Access x)throws Exception{
         String key=a.getString("key");Object value=a.get("value");if(key.equals("assistant_auto_approve")&&x.ai)throw new IOException("AI 不能改变自己的审批权限");
         android.content.SharedPreferences.Editor edit=prefs(c).edit();
-        if(BOOL.contains(key)&&value instanceof Boolean)edit.putBoolean(key,(Boolean)value);else if(CHOICES.containsKey(key)&&CHOICES.get(key).contains(value))edit.putString(key,(String)value);else if(key.equals("widget_tint")&&value instanceof Integer&&(Integer)value>=48&&(Integer)value<=94)edit.putInt(key,(Integer)value);else throw new IOException("不支持的设置或值");
+        if(BOOL.contains(key)&&value instanceof Boolean)edit.putBoolean(key,(Boolean)value);else if(CHOICES.containsKey(key)&&CHOICES.get(key).contains(value))edit.putString(key,(String)value);else if(key.equals("home_columns")&&value instanceof Integer&&(Integer)value>=0&&(Integer)value<=4)edit.putInt(key,(Integer)value);else if(key.equals("widget_tint")&&value instanceof Integer&&(Integer)value>=48&&(Integer)value<=94)edit.putInt(key,(Integer)value);else throw new IOException("不支持的设置或值");
         if(!edit.commit())throw new IOException("设置保存失败");if(key.equals("theme"))new android.os.Handler(android.os.Looper.getMainLooper()).post(()->DayFlowApp.applyTheme((String)value));if(key.equals("sync_auto")||key.equals("sync_backend"))SyncJob.configure(c);if(key.equals("updates_auto"))Updates.configureJob(c);changed(c);return msg("已保存 "+key);
     }
 }

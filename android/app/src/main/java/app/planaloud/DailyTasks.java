@@ -47,7 +47,7 @@ public final class DailyTasks {
         if(rows.isEmpty())return;page.addView(Ui.text(a,title+" · "+rows.size(),18,true));LinearLayout tiles=Ui.column(a);page.addView(tiles);append(a,tiles,rows,0,day,refresh,due);
     }
     private static void append(MainActivity a,LinearLayout target,List<JSONObject> rows,int offset,LocalDate day,Runnable refresh,boolean due){
-        int columns=a.getResources().getConfiguration().screenWidthDp>=340&&a.getResources().getConfiguration().fontScale<1.35f?2:1;
+        int columns=Ui.columns(a);
         int end=Math.min(rows.size(),offset+8);LinearLayout line=null;
         for(int i=offset;i<end;i++){
             if((i-offset)%columns==0){line=Ui.row(a);line.setGravity(android.view.Gravity.TOP);target.addView(line);}
@@ -59,7 +59,7 @@ public final class DailyTasks {
             TextView info=Ui.help(a,label+(meta.isEmpty()?"":" · "+meta));info.setMaxLines(3);body.addView(info);card.addView(body);
             check.setOnClickListener(v->{try{TaskActions.complete(a,r);a.changed();refresh.run();}catch(Exception e){check.setChecked(!r.optString("completed").isEmpty());a.message(e.getMessage());}});
             card.setOnClickListener(v->a.detail(r));card.setOnLongClickListener(v->{TaskQuickActions.menu(a,card,r,a::home,refresh);return true;});
-            Ui.cell(a,line,card);if(i+1==end&&(end-offset)%columns!=0)Ui.cell(a,line,new View(a));
+            Ui.cell(a,line,card);if(i+1==end)for(int pad=(end-offset)%columns;pad>0&&pad<columns;pad++)Ui.cell(a,line,new View(a));
             if(offset>0)Ui.enter(card,i-offset);
         }
         if(end<rows.size()){View more=Ui.button(a,"再显示 · 还有 "+(rows.size()-end)+" 项",false,()->{});more.setOnClickListener(v->{target.removeView(more);append(a,target,rows,end,day,refresh,due);});target.addView(more);}

@@ -26,11 +26,11 @@ final class CommandScreen {
         route("assistant","AI 对话",AssistantPlugin::open);route("floating-assistant","悬浮助手",FloatingAssistant::toggle);route("ai-settings","AI 模型与 API 配置",AiSettings::show);
         route("projects","项目看板",a->ProjectBoard.show(a,"planned",0));route("checkins","长任务打卡",CheckIns::list);route("focus","专注计时",a->FocusTimer.show(a,null));route("search","搜索与全部安排",PlanHub::show);route("types","自定义任务类型",TaskTypes::show);
         route("almanac","黄历",a->DocumentPlugins.almanac(a,LocalDate.now()));route("weather","位置与天气",a->new SettingsPanels(a).weather());
-        route("wallpaper","壁纸图库、轮播和规则",WallpaperScreen::show);route("appearance","主题与动效",a->new SettingsPanels(a).appearance());route("widget","桌面小组件样式",a->new SettingsPanels(a).widget(a::home));
+        route("wallpaper","壁纸图库、轮播和规则",WallpaperScreen::show);route("appearance","主题与动效",a->new SettingsPanels(a).appearance());route("home-layout","主界面栏目与列数",HomeLayout::show);route("widget","桌面小组件样式",a->new SettingsPanels(a).widget(a::home));
         route("sync","同步与备份设置",a->new SettingsPanels(a).sync());route("account","同步账号与地址",a->new SettingsPanels(a).account());route("taskflow","连接 TaskFlow Windows",TaskFlowSettings::show);route("sync-conflicts","同步冲突",a->SyncConflicts.show(a,0));
         route("undo","撤销与误删恢复",UndoHistory::show);route("extensions","内嵌模块与存储",ExtensionHub::show);route("web-import","网页与日历导入",WebImports::show);route("updates","统一更新",UpdateCenter::show);route("licenses","开源许可",a->new SettingsPanels(a).licenses());route("permissions","提醒与精确闹钟权限",AlarmSound::permissions);
         route("voice","语音模块配置",a->a.startActivity(new android.content.Intent().setComponent(new android.content.ComponentName(a,"app.planaloud.voice.MainActivity")).putExtra("settings_only",true)));
-        route("settings","设置",a->a.openPage("settings"));route("commands","更多功能",CommandScreen::show);
+        route("diagnostics","诊断与导出日志",Diagnostics::show);route("settings","设置",a->a.openPage("settings"));route("commands","更多功能",CommandScreen::show);
     }
     static JSONArray catalog()throws JSONException{JSONArray result=new JSONArray();for(Map.Entry<String,Route> item:routes.entrySet())result.put(new JSONObject().put("page",item.getKey()).put("title",item.getValue().label));return result;}
     static synchronized String ticket(String page)throws Exception{if(!routes.containsKey(page))throw new Exception("未知页面；用 screen.list 查询");tickets.values().removeIf(t->t.expires<android.os.SystemClock.elapsedRealtime());if(tickets.size()>=20)throw new Exception("待打开的页面过多");String id=UUID.randomUUID().toString();tickets.put(id,new Ticket(page));return id;}
@@ -64,8 +64,7 @@ final class CommandScreen {
         };
         input.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){update.run();}public void afterTextChanged(Editable e){}});update.run();
         MaterialSwitch adb=new MaterialSwitch(a);adb.setText("允许已授权电脑通过 ADB 运行命令");adb.setChecked(a.prefs.getBoolean("command_adb",false));page.addView(adb);adb.setOnCheckedChangeListener((v,on)->a.prefs.edit().putBoolean("command_adb",on).apply());
-        MaterialSwitch approval=new MaterialSwitch(a);approval.setText("允许 AI 自动批准待核验操作");approval.setChecked(a.prefs.getBoolean("assistant_auto_approve",false));page.addView(approval);approval.setOnCheckedChangeListener((v,on)->a.prefs.edit().putBoolean("assistant_auto_approve",on).apply());
-        page.addView(Ui.help(a,"需批准的操作会出现在聊天或收集箱，系统权限由 Android 单独确认。"));
+        page.addView(Ui.help(a,"明确交代给 AI 的操作直接执行，可在聊天中撤销。系统权限由 Android 单独确认。"));
         page.setFocusableInTouchMode(true);
         page.requestFocus();
         page.addView(cards);
@@ -75,13 +74,12 @@ final class CommandScreen {
     private static void addOptions(MainActivity a,LinearLayout parent,String title,List<View> options){
         if(options.isEmpty())return;
         parent.addView(Ui.text(a,title,18,true));
-        int columns=a.getResources().getConfiguration().fontScale>=1.35f
-                ||a.getResources().getConfiguration().screenWidthDp<340?1:2;
+        int columns=Ui.columns(a);
         LinearLayout row=null;
         for(int i=0;i<options.size();i++){
             if(i%columns==0){row=Ui.row(a);parent.addView(row);}
             Ui.cell(a,row,options.get(i));
         }
-        if(columns==2&&options.size()%2!=0)Ui.cell(a,row,new View(a));
+        for(int pad=options.size()%columns;pad>0&&pad<columns;pad++)Ui.cell(a,row,new View(a));
     }
 }

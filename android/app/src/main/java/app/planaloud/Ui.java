@@ -12,6 +12,7 @@ import com.google.android.material.textfield.*;
 /** Theme-driven native Material controls; never hard-code light foreground colours. */
 public final class Ui {
     public static boolean compact(Context c){return c.getSharedPreferences("settings",0).getBoolean("compact_ui",false);}
+    public static int columns(Context c){int value=c.getSharedPreferences("settings",0).getInt("home_columns",0);return value>=1&&value<=4?value:c.getResources().getConfiguration().screenWidthDp>=340&&c.getResources().getConfiguration().fontScale<1.35f?2:1;}
     public static int dp(Context c,float n){return Math.round(n*c.getResources().getDisplayMetrics().density);}
     public static int color(Context c,int attr){return MaterialColors.getColor(c,attr,0xff386a5c);}
     public static int ink(Context c){return color(c,com.google.android.material.R.attr.colorOnSurface);}

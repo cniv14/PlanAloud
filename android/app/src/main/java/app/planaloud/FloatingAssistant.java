@@ -46,6 +46,17 @@ public final class FloatingAssistant extends Service {
     };
     private ChatEngine engine;
     private int pendingApprovals;
+    private android.window.OnBackInvokedDispatcher backDispatcher;
+    private android.window.OnBackInvokedCallback backCallback;
+    private void updateBackCallback(){
+        if(android.os.Build.VERSION.SDK_INT<33)return;
+        if(backCallback==null)backCallback=()->showExpanded(false);
+        if(backDispatcher!=null){backDispatcher.unregisterOnBackInvokedCallback(backCallback);backDispatcher=null;}
+        if(expanded&&panel.isAttachedToWindow()){
+            backDispatcher=panel.findOnBackInvokedDispatcher();
+            if(backDispatcher!=null)backDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY,backCallback);
+        }
+    }
 
     static void hideHandle(){if(instance!=null)instance.panel.setVisibility(View.INVISIBLE);}
     static void restoreHandle(){
@@ -152,7 +163,20 @@ public final class FloatingAssistant extends Service {
 
     private void createPanel(){
         resolvePalette();
-        panel=Ui.column(theme);
+        panel=new LinearLayout(theme){
+            @Override public boolean dispatchKeyEvent(KeyEvent event){
+                if(expanded&&event.getKeyCode()==KeyEvent.KEYCODE_BACK){
+                    if(event.getAction()==KeyEvent.ACTION_UP)showExpanded(false);
+                    return true;
+                }
+                return super.dispatchKeyEvent(event);
+            }
+        };
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener(){
+            public void onViewAttachedToWindow(View view){updateBackCallback();}
+            public void onViewDetachedFromWindow(View view){if(android.os.Build.VERSION.SDK_INT>=33&&backDispatcher!=null){backDispatcher.unregisterOnBackInvokedCallback(backCallback);backDispatcher=null;}}
+        });
         panel.setElevation(Ui.dp(theme,6));
 
         controls=Ui.column(theme);
@@ -160,7 +184,7 @@ public final class FloatingAssistant extends Service {
         LinearLayout bar=Ui.row(theme);
         controls.addView(bar,new LinearLayout.LayoutParams(-1,-2));
         View move=addIcon(bar,R.drawable.ic_assistant_sparkle,"移动",null,true);
-        draggable(move);
+        draggable(move,false);
         addIcon(bar,R.drawable.ic_assistant_capture,"截屏",this::capture,true);
         addIcon(bar,R.drawable.ic_assistant_open,"打开序言",this::openApp,true);
         addIcon(bar,android.R.drawable.ic_menu_close_clear_cancel,"关闭",this::confirmClose,true);
@@ -190,6 +214,40 @@ public final class FloatingAssistant extends Service {
         compose.addView(input,new LinearLayout.LayoutParams(0,-2,1));
         addIcon(compose,android.R.drawable.ic_menu_send,"发送",this::send);
         controls.addView(compose,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout grips=Ui.row(theme);
+        for(boolean fromLeft:new boolean[]{true,false}){
+            TextView grip=Ui.text(theme,fromLeft?"◣":"◢",18,true);
+            grip.setGravity((fromLeft?Gravity.LEFT:Gravity.RIGHT)|Gravity.CENTER_VERTICAL);
+            grip.setPadding(Ui.dp(theme,8),0,Ui.dp(theme,8),0);
+            grip.setContentDescription(fromLeft?"拖动左下角调整小窗大小":"拖动右下角调整小窗大小");
+            grip.setOnTouchListener(resizeGesture(fromLeft));
+            grips.addView(grip,new LinearLayout.LayoutParams(0,Ui.dp(theme,32),1));
+        }
+        controls.addView(grips,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private View.OnTouchListener resizeGesture(boolean fromLeft){
+        return new View.OnTouchListener(){
+            float x,y;int width,height,left,top;
+            public boolean onTouch(View view,MotionEvent event){
+                switch(event.getActionMasked()){
+                    case MotionEvent.ACTION_DOWN:x=event.getRawX();y=event.getRawY();width=layout.width;height=layout.height;left=layout.x;top=layout.y;return true;
+                    case MotionEvent.ACTION_MOVE:
+                        int screenWidth=getResources().getDisplayMetrics().widthPixels,screenHeight=getResources().getDisplayMetrics().heightPixels;
+                        int dx=Math.round(event.getRawX()-x);
+                        layout.width=Math.max(Math.min(Ui.dp(theme,240),screenWidth-Ui.dp(theme,16)),Math.min(width+(fromLeft?-dx:dx),screenWidth-Ui.dp(theme,16)));
+                        layout.height=Math.max(Math.min(Ui.dp(theme,200),screenHeight-Ui.dp(theme,64)),Math.min(height+Math.round(event.getRawY()-y),screenHeight-Ui.dp(theme,64)));
+                        layout.x=Math.max(Ui.dp(theme,8),Math.min(fromLeft?left+width-layout.width:left,screenWidth-layout.width-Ui.dp(theme,8)));
+                        layout.y=Math.max(0,Math.min(top,screenHeight-layout.height-Ui.dp(theme,32)));
+                        updateWindow();return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        float density=getResources().getDisplayMetrics().density;
+                        getSharedPreferences("settings",0).edit().putInt("floating_width",Math.round(layout.width/density)).putInt("floating_height",Math.round(layout.height/density)).apply();return true;
+                    default:return true;
+                }
+            }
+        };
     }
 
     private ImageButton icon(int res,String description,Runnable action){
@@ -218,6 +276,10 @@ public final class FloatingAssistant extends Service {
         caption.setMaxLines(2);
         caption.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         item.addView(caption,new LinearLayout.LayoutParams(-1,-2));
+        if(action!=null){
+            item.setOnClickListener(v->action.run());
+            caption.setOnClickListener(v->action.run());
+        }
         row.addView(item,new LinearLayout.LayoutParams(weighted?0:Ui.dp(theme,48),-2,weighted?1:0));
         return button;
     }
@@ -256,8 +318,8 @@ public final class FloatingAssistant extends Service {
         panel.removeAllViews();
         panel.setElevation(open?Ui.dp(theme,6):0);
         int screen=getResources().getDisplayMetrics().widthPixels;
-        int width=open?Math.min(screen-Ui.dp(theme,24),Ui.dp(theme,320)):Ui.dp(theme,24);
-        int height=open?Math.min(getResources().getDisplayMetrics().heightPixels*2/5,Ui.dp(theme,320)):Ui.dp(theme,56);
+        int width=open?Math.min(screen-Ui.dp(theme,16),Ui.dp(theme,Math.max(240,getSharedPreferences("settings",0).getInt("floating_width",320)))):Ui.dp(theme,24);
+        int height=open?Math.min(getResources().getDisplayMetrics().heightPixels-Ui.dp(theme,64),Ui.dp(theme,Math.max(200,getSharedPreferences("settings",0).getInt("floating_height",320)))):Ui.dp(theme,56);
         applyPanelBackground(open);
         if(open){
             panel.setFocusableInTouchMode(true);
@@ -268,6 +330,8 @@ public final class FloatingAssistant extends Service {
             handle.setContentDescription("展开侧边悬浮助手");
             handle.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             handle.setOnClickListener(v->showExpanded(true));
+            if(android.os.Build.VERSION.SDK_INT>=29)handle.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->
+                    handle.setSystemGestureExclusionRects(java.util.Collections.singletonList(new Rect(0,0,r-l,b-t))));
             View line=new View(theme);
             line.setTag("edge_handle");
             line.setBackground(edgeLine());
@@ -276,7 +340,7 @@ public final class FloatingAssistant extends Service {
             if(right)grip.rightMargin=Ui.dp(theme,2);else grip.leftMargin=Ui.dp(theme,2);
             handle.addView(line,grip);
             panel.addView(handle,new LinearLayout.LayoutParams(-1,-1));
-            draggable(handle);
+            draggable(handle,true);
         }
         layout.flags=WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|(open?0:WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
         layout.width=width;
@@ -285,6 +349,7 @@ public final class FloatingAssistant extends Service {
         layout.x=right?Math.max(inset,screen-width-inset):inset;
         layout.y=Math.min(layout.y,Math.max(0,getResources().getDisplayMetrics().heightPixels-height-Ui.dp(theme,32)));
         updateWindow();
+        panel.post(this::updateBackCallback);
     }
 
     private GradientDrawable edgeLine(){
@@ -310,30 +375,43 @@ public final class FloatingAssistant extends Service {
         if(panel.isAttachedToWindow())windows.updateViewLayout(panel,layout);
     }
 
-    private void draggable(View view){
+    private void draggable(View view,boolean handle){
         view.setOnTouchListener(new View.OnTouchListener(){
             private float x,y;
             private int left,top;
-            private boolean dragged;
+            private boolean moving,cancelled,dragged;
+            private final int slop=ViewConfiguration.get(theme).getScaledTouchSlop();
+            private final Runnable hold=()->{if(!cancelled){moving=true;view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);}};
             @Override public boolean onTouch(View v,MotionEvent event){
+                int dx=Math.round(event.getRawX()-x),dy=Math.round(event.getRawY()-y);
                 switch(event.getActionMasked()){
                     case MotionEvent.ACTION_DOWN:
-                        x=event.getRawX();y=event.getRawY();left=layout.x;top=layout.y;dragged=false;
-                        return false;
+                        x=event.getRawX();y=event.getRawY();left=layout.x;top=layout.y;
+                        moving=!handle;cancelled=false;dragged=false;
+                        if(handle)main.postDelayed(hold,ViewConfiguration.getLongPressTimeout());
+                        v.setPressed(true);return true;
                     case MotionEvent.ACTION_MOVE:
-                        int dx=Math.round(event.getRawX()-x),dy=Math.round(event.getRawY()-y);
-                        if(!dragged&&Math.abs(dx)+Math.abs(dy)<ViewConfiguration.get(theme).getScaledTouchSlop())return false;
+                        if(!moving){
+                            if(cancelled)return true;
+                            if(Math.abs(dx)>slop||Math.abs(dy)>slop){
+                                main.removeCallbacks(hold);cancelled=true;
+                                if(!expanded&&Math.abs(dx)>Math.abs(dy)&&((right&&dx< -slop)||(!right&&dx>slop))){v.setPressed(false);showExpanded(true);}
+                            }
+                            return true;
+                        }
+                        if(!dragged&&Math.abs(dx)+Math.abs(dy)<slop)return true;
                         dragged=true;
                         layout.x=Math.max(0,Math.min(left+dx,getResources().getDisplayMetrics().widthPixels-layout.width));
                         layout.y=Math.max(0,Math.min(top+dy,getResources().getDisplayMetrics().heightPixels-layout.height));
                         updateWindow();return true;
                     case MotionEvent.ACTION_UP:
-                        if(!dragged)return false;
-                        v.setPressed(false);
-                        right=layout.x+layout.width/2>getResources().getDisplayMetrics().widthPixels/2;
-                        if(!expanded)showExpanded(false);
+                        main.removeCallbacks(hold);v.setPressed(false);
+                        if(dragged){right=layout.x+layout.width/2>getResources().getDisplayMetrics().widthPixels/2;if(!expanded)showExpanded(false);}
+                        else if(!moving&&!cancelled)v.performClick();
                         return true;
-                    default:return false;
+                    case MotionEvent.ACTION_CANCEL:
+                        main.removeCallbacks(hold);cancelled=true;v.setPressed(false);return true;
+                    default:return true;
                 }
             }
         });
@@ -381,7 +459,7 @@ public final class FloatingAssistant extends Service {
                 if(engine==null)engine=new ChatEngine(this,active);
                 else engine.renewSession(active);
                 if(closed){AssistantPlugin.closeFloating(this,active);return;}
-                String encoded=image==null?null:"data:image/jpeg;base64,"+
+                String encoded=image==null?null:"data:image/png;base64,"+
                         android.util.Base64.encodeToString(Files.readAllBytes(image.toPath()),android.util.Base64.NO_WRAP);
                 engine.send(text,encoded,new ChatEngine.Listener(){
                     public boolean active(){return !closed&&!Thread.currentThread().isInterrupted();}
@@ -420,7 +498,7 @@ public final class FloatingAssistant extends Service {
                         .put("token",result.optString("approval_token")).put("approved",yes));
                 main.post(()->{if(!closed){messages.removeView(row);pendingApprovals--;addMessage(reply.optString("message",yes?"已批准":"已拒绝"),false);}});
             }catch(Exception error){
-                main.post(()->{if(!closed){messages.removeView(row);pendingApprovals--;addMessage(error.getMessage(),false);}});
+                main.post(()->{if(!closed){row.setVisibility(View.VISIBLE);addMessage(error.getMessage(),false);}});
             }finally{
                 main.post(()->{if(!closed){busy=false;if(!expanded&&pendingApprovals==0)releaseSession();AgendaWidget.refresh(this);ReminderReceiver.refresh(this);}});
             }

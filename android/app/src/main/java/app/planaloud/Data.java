@@ -1,6 +1,7 @@
 package app.planaloud;
 
 import android.content.*;
+import java.io.IOException;
 import android.database.Cursor;
 import android.database.sqlite.*;
 import org.json.*;
@@ -78,7 +79,8 @@ public final class Data extends SQLiteOpenHelper {
         if(!r.optString("parent_id").isEmpty())UUID.fromString(r.getString("parent_id"));
         if(!r.optString("type_id").isEmpty())UUID.fromString(r.getString("type_id"));
     }
-    public synchronized int importNew(JSONArray rows)throws Exception{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);validate(r);if(!r.optString("kind").equals("course"))throw new Exception("只能批量创建课程");}SQLiteDatabase db=getWritableDatabase();int added=0;db.beginTransaction();batchWrite=true;try{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);if(find(r.getString("id"))!=null)continue;save(r);added++;}db.setTransactionSuccessful();}finally{batchWrite=false;db.endTransaction();}if(added>0)SyncJob.request(context);return added;}
+    public synchronized int importNew(JSONArray rows)throws Exception{return importNew(rows,"");}
+    public synchronized int importNew(JSONArray rows,String source)throws Exception{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);validate(r);if(!r.optString("kind").equals("course"))throw new Exception("只能批量创建课程");}SQLiteDatabase db=getWritableDatabase();int added=0;JSONArray imported=new JSONArray();db.beginTransaction();batchWrite=true;try{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);if(find(r.getString("id"))!=null)continue;save(r);imported.put(new JSONObject().put("id",r.getString("id")).put("revision",r.getString("revision")));added++;}if(added>0&&!source.isEmpty())UndoHistory.recordCourses(context,imported,source);db.setTransactionSuccessful();}finally{batchWrite=false;db.endTransaction();}if(added>0)SyncJob.request(context);return added;}
     public synchronized int inboxCount(){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM records WHERE deleted=0 AND kind='inbox'",null)){return c.moveToFirst()?c.getInt(0):0;}}
     public synchronized JSONObject find(String id)throws JSONException{return readObject("records","id=?",new String[]{id});}
     private JSONObject readObject(String table,String where,String[] args)throws JSONException{StringBuilder body=new StringBuilder();appendBody(table,where,args,body);return body.length()==0?null:new JSONObject(body.toString());}
@@ -121,6 +123,16 @@ public final class Data extends SQLiteOpenHelper {
         if(r.optBoolean("purged"))try{UndoHistory.forget(context,r.getString("id"));}
         catch(Exception e){throw new JSONException("未能清理撤销快照："+e.getMessage());}
         r.put("updated_at",Instant.now().toString());put(r,true,version(r.getString("id")));
+    }
+    synchronized void undoCourses(JSONArray rows)throws Exception{
+        for(int i=0;i<rows.length();i++){
+            JSONObject row=rows.getJSONObject(i),current=find(row.getString("id"));
+            if(current==null||current.optBoolean("deleted")||!row.getString("revision").equals(current.optString("revision")))throw new IOException("导入的课程已被编辑或同步更新，未覆盖后续修改");
+        }
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();batchWrite=true;
+        try{for(int i=0;i<rows.length();i++)save(find(rows.getJSONObject(i).getString("id")).put("deleted",true).put("_undo_skip",true));db.setTransactionSuccessful();}
+        finally{batchWrite=false;db.endTransaction();}
+        SyncJob.request(context);
     }
     private static final String RECOVERABLE = "deleted=1 AND preview NOT LIKE '%\"purged\":true%'";
 

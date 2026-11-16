@@ -22,5 +22,14 @@ public final class DayFlowApp extends Application implements app.planaloud.assis
         });
         return backdrop;
     }
+    @Override public void recordConversationError(String operation,Throwable failure){Diagnostics.record(this,operation,failure);}
+    @Override public boolean applyConversationTheme(android.app.Activity activity){ThemeColors.apply(activity);return true;}
+    @Override public void styleConversationSurface(android.view.View view,boolean own){
+        android.content.Context c=view.getContext();float radius=Ui.compact(c)?16:20;
+        android.graphics.drawable.GradientDrawable shape=new android.graphics.drawable.GradientDrawable();
+        shape.setColor(LiquidGlass.tint(Ui.color(c,own?com.google.android.material.R.attr.colorSecondaryContainer:com.google.android.material.R.attr.colorSurfaceContainerLow),185));
+        shape.setCornerRadius(Ui.dp(c,radius));shape.setStroke(Ui.dp(c,1),Ui.color(c,com.google.android.material.R.attr.colorOutlineVariant));
+        view.setBackground(shape);LiquidGlass.outline(view,radius);
+    }
     public static void applyTheme(String value){AppCompatDelegate.setDefaultNightMode("dark".equals(value)?AppCompatDelegate.MODE_NIGHT_YES:"light".equals(value)?AppCompatDelegate.MODE_NIGHT_NO:AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);}
 }
