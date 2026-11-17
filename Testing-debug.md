@@ -49,4 +49,4 @@ gradle :app:assembleRelease :app:assembleDebug :app:testDebugUnitTest :app:compi
 
 回归覆盖可见栏目组合、底栏状态与菜单实例、实际触摸滑动及滚动冲突、引导跳过／旋转／云端选择、旧模型清理。Android UI 测试基于 Robolectric，尚未在真实手机上复测；在线语音仍需使用实际服务密钥验证。
 
-本次验证：正式版／Debug 构建、13 项 Android UI 与手势回归、3 项加密备份测试、Lint、APK 签名、四个模块及更新清单签名均已通过。正式 APK 约 5.0 MiB，相比上一预览包约缩小 58%。
+本次验证：正式版／Debug 构建、14 项 Android UI 与手势回归、3 项加密备份测试、Lint、APK 签名、四个模块及更新清单签名均已通过。正式 APK 约 5.0 MiB，相比上一预览包约缩小 58%。
