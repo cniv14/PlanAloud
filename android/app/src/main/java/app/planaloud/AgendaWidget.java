@@ -16,6 +16,7 @@ import java.util.Locale;
 import org.json.*;
 
 public final class AgendaWidget extends AppWidgetProvider {
+    private static final String PROGRESS="app.planaloud.WIDGET_DAY_PROGRESS";
     private static final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private static final java.util.concurrent.atomic.AtomicBoolean queued=new java.util.concurrent.atomic.AtomicBoolean();
     static android.content.SharedPreferences prefs(Context c){return c.getSharedPreferences("settings",0);}
@@ -30,10 +31,13 @@ public final class AgendaWidget extends AppWidgetProvider {
         if(quick)i.putExtra("quick",true).putExtra("quick_kind","task");i.setData(Uri.parse("planaloud://widget/"+(quick?"new":id.isEmpty()?"home":id)));
         return PendingIntent.getActivity(c,0,i,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
     }
+    @Override public void onReceive(Context c,Intent intent){if(PROGRESS.equals(intent.getAction())){refresh(c);return;}super.onReceive(c,intent);}
+    private static PendingIntent progressIntent(Context c){return PendingIntent.getBroadcast(c,531,new Intent(c,AgendaWidget.class).setAction(PROGRESS),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
+    @Override public void onDisabled(Context c){c.getSystemService(AlarmManager.class).cancel(progressIntent(c));super.onDisabled(c);}
     public void onAppWidgetOptionsChanged(Context c,AppWidgetManager m,int id,Bundle options){onUpdate(c,m,new int[]{id});}
     public void onUpdate(Context c,AppWidgetManager m,int[] ids){PendingResult pending=goAsync();worker.execute(()->{try{update(c,m,ids);}finally{if(pending!=null)pending.finish();}});}
     private static void update(Context c,AppWidgetManager manager,int[] ids){
-        if(ids.length==0)return;boolean dark=dark(c);int ink=dark?0xffedf3f8:0xff1f2830,muted=dark?0xffc5d3de:0xff465765,accent=ThemeColors.accent(c,dark);LocalDate today=LocalDate.now();
+        if(ids.length==0)return;c.getSystemService(AlarmManager.class).set(AlarmManager.ELAPSED_REALTIME,android.os.SystemClock.elapsedRealtime()+15*60000L,progressIntent(c));boolean dark=dark(c);int ink=dark?0xffedf3f8:0xff1f2830,muted=dark?0xffc5d3de:0xff465765,accent=ThemeColors.accent(c,dark);LocalDate today=LocalDate.now();
         String style=prefs(c).getString("widget_background","glass");
         String weather=OpenWeatherSources.cached(c,"");
         Bitmap background=style.equals("solid")?null:glassBackground(c,style,dark,accent);
@@ -52,6 +56,10 @@ public final class AgendaWidget extends AppWidgetProvider {
                 v.setPendingIntentTemplate(container,PendingIntent.getActivity(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
                 v.setTextViewText(R.id.widget_date,today.format(DateTimeFormatter.ofPattern("M月d日 EEE",Locale.CHINA)));v.setTextColor(R.id.widget_date,ink);
                 v.setTextViewText(R.id.widget_weather,weather.isEmpty()?"今日待办 · 上下滑动":weather);v.setTextColor(R.id.widget_weather,muted);
+                java.time.LocalTime clock=java.time.LocalTime.now();v.setProgressBar(R.id.widget_day_progress,DayTime.MINUTES,DayTime.minute(clock),false);
+                v.setTextViewText(R.id.widget_day_progress_label,"今日已过 "+DayTime.percent(clock)+"%");v.setTextColor(R.id.widget_day_progress_label,muted);v.setTextColor(R.id.widget_clock,muted);
+                if(android.os.Build.VERSION.SDK_INT>=31)v.setColorStateList(R.id.widget_day_progress,"setProgressTintList",android.content.res.ColorStateList.valueOf(accent));
+                v.setOnClickPendingIntent(R.id.widget_timeline,open(c,null,false));
                 v.setTextColor(R.id.widget_empty,muted);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_inbox,ink);
                 v.setViewVisibility(R.id.widget_inbox,notice==null?View.GONE:View.VISIBLE);if(notice!=null){v.setTextViewText(R.id.widget_inbox,"收集箱 "+count+" 条 · "+notice.optString("title"));v.setOnClickPendingIntent(R.id.widget_inbox,open(c,notice,false));}
                 v.setOnClickPendingIntent(R.id.widget_add,open(c,null,true));v.setOnClickPendingIntent(R.id.widget_header,open(c,null,false));v.setOnClickPendingIntent(R.id.widget_empty,open(c,null,true));

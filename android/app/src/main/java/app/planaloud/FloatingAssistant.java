@@ -58,6 +58,10 @@ public final class FloatingAssistant extends Service {
         }
     }
 
+    static void collapseForApp(){
+        FloatingAssistant current=instance;
+        if(current!=null)current.main.post(()->{if(!current.closed&&current.expanded&&!current.capturing)current.showExpanded(false);});
+    }
     static void hideHandle(){if(instance!=null)instance.panel.setVisibility(View.INVISIBLE);}
     static void restoreHandle(){
         if(instance!=null){

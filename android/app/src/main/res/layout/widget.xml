@@ -9,6 +9,13 @@
             </LinearLayout>
             <TextView android:id="@+id/widget_add" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="＋" android:textSize="23sp" android:contentDescription="新建待办"/>
         </LinearLayout>
+        <LinearLayout android:id="@+id/widget_timeline" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingBottom="5dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                <TextClock android:layout_width="wrap_content" android:layout_height="wrap_content" android:format12Hour="HH:mm" android:format24Hour="HH:mm" android:textSize="10sp" android:id="@+id/widget_clock"/>
+                <TextView android:id="@+id/widget_day_progress_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:textSize="10sp"/>
+            </LinearLayout>
+            <ProgressBar android:id="@+id/widget_day_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:max="1440" android:progressTint="@color/brand"/>
+        </LinearLayout>
         <TextView android:id="@+id/widget_inbox" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="4dp" android:maxLines="1" android:ellipsize="end" android:textSize="12sp"/>
         <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
             <ListView android:id="@+id/widget_list" android:layout_width="match_parent" android:layout_height="match_parent" android:divider="@android:color/transparent" android:dividerHeight="3dp"/>

@@ -46,10 +46,9 @@ public final class SettingsPanels {
         });
         toggle(form,"减少序言动效","保留布局，关闭主要过渡与壁纸切换动画。",p.getBoolean("reduce_motion",false),on->p.edit().putBoolean("reduce_motion",on).apply());
         toggle(form,"紧凑列表与表格","减少卡片和表格留白，操作区域仍至少48dp。",p.getBoolean("compact_ui",false),on->{p.edit().putBoolean("compact_ui",on).apply();a.recreate();});
-        form.addView(Ui.tile(a,"应用图标",ProviderAppearance.current(p).label,()->ProviderAppearance.show(a)));
-        form.addView(Ui.tile(a,"桌面小组件","单双列排布、背景和桌面添加",()->widget(this::appearance)));
+        AppearanceTiles.add(a,form);
         ThemeColors.settings(a,form);
-        toggle(form,"动态流光","仅在前台运行，省电模式暂停。",p.getBoolean("motion",false),on->{p.edit().putBoolean("motion",on).apply();a.refreshBackdrop();});toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();}});form.addView(slider);
+        toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();}});form.addView(slider);
     }
     void widget(Runnable back){
         LinearLayout page=a.fullPage("桌面小组件",back);page.addView(Ui.text(a,"桌面小组件",24,true));

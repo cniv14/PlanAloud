@@ -51,9 +51,10 @@ final class Onboarding {
         group.check(mode.equals("cloud")?cloud:local);group.setOnCheckedChangeListener((g,id)->mode=id==cloud?"cloud":"local");
     }
     private void operations(LinearLayout body){
+        GuidePractice.add(a,body);
         tip(body,"今天 · 新建待办","点「＋ 新建待办」记录要做的事；点事项查看、编辑，勾选方框完成。长按可查看快捷操作。");
         tip(body,"日程 · 月历与课表","点日期查看当天安排，从「课表」导入课程。左右滑动切换已显示的栏目；今天向左滑先进入一周预览。");
-        tip(body,"问序言 AI","在设置中配置模型与 API Key 后，用自然语言查询或安排日程。输入 / 可滚动查看指令，支持图片和文本附件；助手操作可撤销。");
+        tip(body,"问序言 AI","在设置中配置模型与 API Key 后，用自然语言查询或安排日程。输入 / 可滚动查看指令，支持图片和文本附件；聊天顶部可切换自动批准，助手操作可撤销。");
         tip(body,"设置 · 更多功能","笔记、收集箱等功能可从更多功能打开。外观设置可调整主界面栏目与卡片列数；数据与同步中可备份或连接服务器。");
     }
     private void summary(LinearLayout body){

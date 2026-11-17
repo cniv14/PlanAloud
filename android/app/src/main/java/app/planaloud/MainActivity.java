@@ -136,7 +136,7 @@ public final class MainActivity extends AppCompatActivity {
         navigationBar.setBackgroundTintList(null);
         navigationBar.setBackground(LiquidGlass.panel(this,26));
         navigationBar.setItemActiveIndicatorEnabled(false);
-        navigationBar.setItemBackground(LiquidGlass.navSelection(this));
+        navigationBar.setItemBackground((android.graphics.drawable.Drawable)null);
         navigationBar.setItemTextColor(navigationBar.getItemIconTintList());
         shell.addView(navigationBar,navLayout);
         navigationBar.setOnItemSelectedListener(item->{if(selectingTab)return true;String next=new String[]{"agenda","note","course","inbox","settings"}[item.getItemId()-100];if(next.equals(tab)&&!weekPreview)return true;int old=java.util.Arrays.asList("agenda","note","course","inbox","settings").indexOf(tab);transitionDirection=java.util.Arrays.asList("agenda","note","course","inbox","settings").indexOf(next)>=old?1:-1;weekPreview=false;View focus=getCurrentFocus();if(focus!=null){focus.clearFocus();((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);}tab=next;handlingNavigationTap=true;try{renderHome();}finally{handlingNavigationTap=false;}return true;});navigationBar.setOnItemReselectedListener(item->{});
@@ -151,7 +151,7 @@ public final class MainActivity extends AppCompatActivity {
         try{
             navigationBar.getMenu().clear();
             String[] labels={"今天","笔记","日程","收集箱","设置"};int[] icons={R.drawable.ic_calendar,R.drawable.ic_note,R.drawable.ic_schedule,R.drawable.ic_inbox,R.drawable.ic_settings};
-            for(int n=0;n<labels.length;n++)if(homeTabVisible(n))navigationBar.getMenu().add(0,100+n,n,labels[n]).setIcon(icons[n]).setCheckable(true);
+            for(int n=0;n<labels.length;n++)if(homeTabVisible(n))navigationBar.getMenu().add(0,100+n,n,labels[n]).setIcon(NavigationIcons.icon(this,n)).setCheckable(true);
             if(!handlingNavigationTap)syncNavigationSelection();
         }finally{selectingTab=false;}
     }
@@ -191,6 +191,7 @@ public final class MainActivity extends AppCompatActivity {
         hero.addView(date);
         String weather=OpenWeatherSources.cached(this,"");
         hero.addView(Ui.help(this,ChineseDates.description(today)+(weather.isEmpty()?"":" · "+weather)));
+        hero.addView(new DayTimeline(this),new LinearLayout.LayoutParams(-1,Ui.dp(this,68)));
         page.addView(hero);
         LinearLayout actions=Ui.row(this);page.addView(actions);Ui.cell(this,actions,Ui.button(this,"＋ 新建待办",true,()->newRecord("task")));Ui.cell(this,actions,Ui.button(this,"周预览",false,()->showWeek(today)));
         if(!prefs.getBoolean("reduce_motion",false)){Ui.enter(actions,1);}DailyTasks.today(this,page);
@@ -362,7 +363,7 @@ public final class MainActivity extends AppCompatActivity {
     public void openSchedule(LocalDate date){if(!date.equals(selected)){scheduleScroll=null;scheduleScrollY=0;}selected=date;tab="course";weekPreview=false;renderHome();}
     public void showInbox(){tab="inbox";weekPreview=false;renderHome();}
     public void showCaptureText(String text){try{JSONObject r=Data.make("inbox","识别文字 · 待确认").put("content",text).put("confirmation_status","pending");Data.validate(r);Data.get(this).save(r);changed();detail(r);}catch(Exception e){message(e.getMessage());}}
-    private boolean interactive(View view,float x,float y){android.graphics.Rect bounds=new android.graphics.Rect();if(!view.getGlobalVisibleRect(bounds)||!bounds.contains((int)x,(int)y))return false;if(view.canScrollHorizontally(-1)||view.canScrollHorizontally(1)||view instanceof com.google.android.material.slider.Slider||view instanceof com.google.android.material.slider.RangeSlider||view instanceof EditText||view instanceof SeekBar||view instanceof NumberPicker||view instanceof HorizontalScrollView||view.getClass().getName().contains("CropImageView"))return true;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=group.getChildCount()-1;i>=0;i--)if(interactive(group.getChildAt(i),x,y))return true;}return false;}
+    private boolean interactive(View view,float x,float y){android.graphics.Rect bounds=new android.graphics.Rect();if(!view.getGlobalVisibleRect(bounds)||!bounds.contains((int)x,(int)y))return false;if(view instanceof TwoAxisScroll||view.canScrollHorizontally(-1)||view.canScrollHorizontally(1)||view instanceof com.google.android.material.slider.Slider||view instanceof com.google.android.material.slider.RangeSlider||view instanceof EditText||view instanceof SeekBar||view instanceof NumberPicker||view instanceof HorizontalScrollView||view.getClass().getName().contains("CropImageView"))return true;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=group.getChildCount()-1;i>=0;i--)if(interactive(group.getChildAt(i),x,y))return true;}return false;}
     private String swipeDestination(boolean forward){return HomeNavigation.adjacent(visibleNavigationMask(),tab.equals("agenda")&&weekPreview?"week":tab,forward);}
     private void swipePage(boolean forward){
         String next=swipeDestination(forward);if(next==null)return;
