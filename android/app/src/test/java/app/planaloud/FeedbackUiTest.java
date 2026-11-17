@@ -82,4 +82,18 @@ public class FeedbackUiTest {
         new WidgetActions().onReceive(activity,new Intent().putExtra("record_id",record.getString("id")).putExtra("complete",true));WidgetActions.worker.submit(()->{}).get(15,TimeUnit.SECONDS);assertFalse(Data.get(activity).find(record.getString("id")).optString("completed").isEmpty());assertNull(app.getNextStartedActivity());
     }
 
+    @Test public void pngUsesEveryWeekRowAndIsReadable()throws Exception{
+        LocalDate day=LocalDate.of(2099,2,2);for(int n=0;n<12;n++)Data.get(activity).save(Data.make("event","完整事项 "+n).put("start_at",day.atTime(9,0).toString()).put("end_at",day.atTime(10,0).toString()));
+        WeekSchedule full=WeekSchedule.load(activity,day);assertEquals(12,full.days.get(0).get(0).size());Bitmap empty=WeekPng.render(new WeekSchedule(day),false),image=WeekPng.render(full,false);assertEquals(1808,image.getWidth());assertTrue(image.getHeight()>empty.getHeight());ByteArrayOutputStream bytes=new ByteArrayOutputStream();assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,bytes));byte[] png=bytes.toByteArray();assertArrayEquals(new byte[]{(byte)137,80,78,71,13,10,26,10},java.util.Arrays.copyOf(png,8));assertEquals(image.getHeight(),BitmapFactory.decodeByteArray(png,0,png.length).getHeight());image.recycle();empty.recycle();
+    }
+    @Test public void exportPickerUsesSelectedWeekAndCancellationClearsPendingDate(){
+        LocalDate day=LocalDate.of(2099,2,2);LinearLayout page=activity.fullPage("周测试",activity::home);WeekPreview.show(activity,page,day,x->{},()->{});layout();text(page,"导出 PNG").performClick();Intent picker=shadowOf(activity).getNextStartedActivityForResult().intent;assertEquals(Intent.ACTION_CREATE_DOCUMENT,picker.getAction());assertEquals("image/png",picker.getType());assertTrue(picker.getStringExtra(Intent.EXTRA_TITLE).contains(day.toString()));assertEquals(day.toString(),activity.prefs.getString("pending_week_png",""));WeekPng.result(activity,android.app.Activity.RESULT_CANCELED,null);assertFalse(activity.prefs.contains("pending_week_png"));
+    }
+    @Test public void exportDateSurvivesRecreationAndSavesCompletePng()throws Exception{
+        LocalDate day=LocalDate.of(2099,2,2);WeekPng.request(activity,day);controller.recreate();activity=controller.get();layout();assertEquals(day.toString(),activity.prefs.getString("pending_week_png",""));File destination=File.createTempFile("export-week-",".png",activity.getCacheDir());WeekPng.result(activity,android.app.Activity.RESULT_OK,new Intent().setData(Uri.fromFile(destination)));jobs();Bitmap saved=BitmapFactory.decodeFile(destination.getPath());assertNotNull(saved);assertEquals(1808,saved.getWidth());assertFalse(activity.prefs.contains("pending_week_png"));assertFalse(activity.isFinishing());
+    }
+    @Test public void guideOffersWeekPracticeAndSafeExportPreview()throws Exception{
+        Onboarding.show(activity);layout();text(activity.getWindow().getDecorView(),"下一步").performClick();layout();assertNotNull(text(activity.getWindow().getDecorView(),"周预览与图片导出"));assertNotNull(find(activity.getWindow().getDecorView(),TwoAxisScroll.class));TextView preview=text(activity.getWindow().getDecorView(),"看看 PNG 导出样式");assertNotNull(preview);preview.performClick();jobs();assertNotNull(org.robolectric.shadows.ShadowDialog.getLatestDialog());assertFalse(activity.prefs.contains("pending_week_png"));assertNotNull(text(activity.getWindow().getDecorView(),"跳过"));
+    }
+
 }

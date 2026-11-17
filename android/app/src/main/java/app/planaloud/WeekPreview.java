@@ -20,21 +20,11 @@ final class WeekPreview {
         Ui.cell(a,controls,Ui.button(a,"下一周 ›",false,()->change.accept(first.plusWeeks(1))));
         page.addView(Ui.text(a,first+" — "+first.plusDays(6),20,true));
         page.addView(Ui.help(a,"在周表内向任意方向拖动 · 全天底色覆盖当天 · 点击安排查看详情"));
-        List<List<List<JSONObject>>> days=new ArrayList<>();List<List<JSONObject>> allDay=new ArrayList<>();int[] counts=new int[4];int maxAll=0;
-        for(int i=0;i<7;i++){
-            LocalDate date=first.plusDays(i);List<List<JSONObject>> bands=new ArrayList<>();for(int n=0;n<4;n++)bands.add(new ArrayList<>());days.add(bands);List<JSONObject> full=new ArrayList<>();allDay.add(full);
-            try{
-                Data db=Data.get(a);Set<String> due=new HashSet<>();JSONArray scheduled=db.scheduled(date,date.plusDays(1),false),deadlines=db.deadlines(date);
-                for(int n=0;n<scheduled.length();n++){
-                    JSONObject r=scheduled.getJSONObject(n);if(!r.optString("completed").isEmpty()||"waiting".equals(r.optString("activation")))continue;
-                    if(r.optBoolean("all_day")){full.add(r);continue;}
-                    if(r.optString("start_at").isEmpty()){if(due.add(r.optString("id")))bands.get(3).add(r);continue;}
-                    int hour=PlanTime.start(r).getHour();bands.get(hour<12?0:hour<18?1:2).add(r);
-                }
-                for(int n=0;n<deadlines.length();n++){JSONObject r=deadlines.getJSONObject(n);if(due.add(r.optString("id")))bands.get(3).add(r);}
-            }catch(Exception e){a.message(e.getMessage());}
-            for(int n=0;n<4;n++)counts[n]=Math.max(counts[n],bands.get(n).size());maxAll=Math.max(maxAll,full.size());
-        }
+        LinearLayout actions=Ui.row(a);page.addView(actions);
+        Ui.cell(a,actions,Ui.button(a,"导出 PNG",true,()->WeekPng.request(a,first)));
+        Ui.cell(a,actions,Ui.button(a,"使用帮助",false,()->WeekPng.help(a)));
+        WeekSchedule snapshot;try{snapshot=WeekSchedule.load(a,first);}catch(Exception failure){a.message("无法读取周日程："+failure.getMessage());return;}
+        List<List<List<JSONObject>>> days=snapshot.days;List<List<JSONObject>> allDay=snapshot.allDay;int[] counts=snapshot.counts;int maxAll=snapshot.maxAll;
         int width=Ui.dp(a,Math.max(126,Math.min(166,(a.getResources().getConfiguration().screenWidthDp-56)/2))),header=Ui.dp(a,76),fullHeight=Ui.dp(a,Math.max(64,Math.min(3,maxAll)*44+16+(maxAll>3?48:0)));
         int[] heights=new int[4];for(int i=0;i<4;i++)heights[i]=Ui.dp(a,Math.max(96,Math.min(4,counts[i])*82+(counts[i]>4?48:0)+12));
         LinearLayout table=Ui.column(a);table.setTag("week-table");
