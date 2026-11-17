@@ -66,4 +66,20 @@ public class FeedbackUiTest {
     @Test public void guideHasPracticeControlsWithLiveCompletionFeedback(){
         Onboarding.show(activity);layout();text(activity.getWindow().getDecorView(),"下一步").performClick();layout();assertNotNull(text(activity.getWindow().getDecorView(),"先动手试一试"));com.google.android.material.checkbox.MaterialCheckBox check=find(activity.getWindow().getDecorView(),com.google.android.material.checkbox.MaterialCheckBox.class);assertNotNull(check);check.setChecked(true);layout();assertNotNull(text(activity.getWindow().getDecorView(),"示例待办已完成 ✓ 再点一次可以恢复"));assertNotNull(text(activity.getWindow().getDecorView(),"跳过"));
     }
+    @Test public void weekHeadersStayPinnedWhileFollowingTheirOwnAxis(){
+        LinearLayout page=activity.fullPage("周测试",activity::home);WeekPreview.show(activity,page,LocalDate.now(),x->{},()->{});layout();
+        View decor=activity.getWindow().getDecorView();decor.measure(View.MeasureSpec.makeMeasureSpec(360,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(700,View.MeasureSpec.EXACTLY));decor.layout(0,0,360,700);
+        View head=page.findViewWithTag("week-headings"),times=page.findViewWithTag("week-times");ViewGroup lower=(ViewGroup)((View)times.getParent()).getParent();TwoAxisScroll pan=(TwoAxisScroll)lower.getChildAt(1);
+        pan.scrollTo(120,100);assertEquals(120,pan.getScrollX());assertTrue(pan.getScrollY()>0);assertEquals(120,((View)head.getParent()).getScrollX());assertEquals(0f,head.getTranslationY(),0);assertEquals(0f,times.getTranslationX(),0);assertEquals(-pan.getScrollY(),times.getTranslationY(),0);
+        ViewGroup firstDay=(ViewGroup)((ViewGroup)pan.getChildAt(0)).getChildAt(0);ViewGroup body=(ViewGroup)firstDay.getChildAt(0);assertNotNull(body.getChildAt(0).getBackground());
+    }
+    @Test public void eventColorsClipAtMidnightAndSeparateOverlaps()throws Exception{
+        LocalDate day=LocalDate.of(2099,1,2);JSONObject first=Data.make("event","跨天").put("start_at",day.minusDays(1).atTime(23,0).toString()).put("end_at",day.atTime(1,0).toString());JSONObject second=Data.make("event","重叠").put("start_at",day.atTime(0,30).toString()).put("end_at",day.atTime(2,0).toString());Data.get(activity).save(first);Data.get(activity).save(second);
+        java.util.List<DayEvents.Segment> events=DayEvents.load(activity,day);assertEquals(2,events.size());assertEquals(0,events.get(0).start);assertEquals(60,events.get(0).end);assertEquals(30,events.get(1).start);assertEquals(120,events.get(1).end);assertNotEquals(events.get(0).lane,events.get(1).lane);assertNotEquals(events.get(0).color,events.get(1).color);assertEquals("00:00–01:00 · 跨天",events.get(0).label());assertNotNull(DayEvents.widget(activity,day));
+    }
+    @Test public void widgetCompletionUpdatesDataWithoutOpeningActivity()throws Exception{
+        JSONObject record=Data.make("task","组件勾选");Data.get(activity).save(record);org.robolectric.shadows.ShadowApplication app=shadowOf((Application)activity.getApplicationContext());while(app.getNextStartedActivity()!=null){}
+        new WidgetActions().onReceive(activity,new Intent().putExtra("record_id",record.getString("id")).putExtra("complete",true));WidgetActions.worker.submit(()->{}).get(15,TimeUnit.SECONDS);assertFalse(Data.get(activity).find(record.getString("id")).optString("completed").isEmpty());assertNull(app.getNextStartedActivity());
+    }
+
 }

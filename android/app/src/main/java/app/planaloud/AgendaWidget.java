@@ -52,13 +52,13 @@ public final class AgendaWidget extends AppWidgetProvider {
                 v.setViewVisibility(R.id.widget_list,grid?View.GONE:View.VISIBLE);v.setViewVisibility(R.id.widget_grid,grid?View.VISIBLE:View.GONE);
                 Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/"+(grid?"grid":"list")));
                 v.setRemoteAdapter(container,adapter);v.setEmptyView(container,R.id.widget_empty);
-                Intent tap=new Intent(c,WidgetActionActivity.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                v.setPendingIntentTemplate(container,PendingIntent.getActivity(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
+                Intent tap=new Intent(c,WidgetActions.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                v.setPendingIntentTemplate(container,PendingIntent.getBroadcast(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
                 v.setTextViewText(R.id.widget_date,today.format(DateTimeFormatter.ofPattern("M月d日 EEE",Locale.CHINA)));v.setTextColor(R.id.widget_date,ink);
                 v.setTextViewText(R.id.widget_weather,weather.isEmpty()?"今日待办 · 上下滑动":weather);v.setTextColor(R.id.widget_weather,muted);
-                java.time.LocalTime clock=java.time.LocalTime.now();v.setProgressBar(R.id.widget_day_progress,DayTime.MINUTES,DayTime.minute(clock),false);
+                java.time.LocalTime clock=java.time.LocalTime.now();
                 v.setTextViewText(R.id.widget_day_progress_label,"今日已过 "+DayTime.percent(clock)+"%");v.setTextColor(R.id.widget_day_progress_label,muted);v.setTextColor(R.id.widget_clock,muted);
-                if(android.os.Build.VERSION.SDK_INT>=31)v.setColorStateList(R.id.widget_day_progress,"setProgressTintList",android.content.res.ColorStateList.valueOf(accent));
+                v.setImageViewBitmap(R.id.widget_event_timeline,DayEvents.widget(c,today));
                 v.setOnClickPendingIntent(R.id.widget_timeline,open(c,null,false));
                 v.setTextColor(R.id.widget_empty,muted);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_inbox,ink);
                 v.setViewVisibility(R.id.widget_inbox,notice==null?View.GONE:View.VISIBLE);if(notice!=null){v.setTextViewText(R.id.widget_inbox,"收集箱 "+count+" 条 · "+notice.optString("title"));v.setOnClickPendingIntent(R.id.widget_inbox,open(c,notice,false));}

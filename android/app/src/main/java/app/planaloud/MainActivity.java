@@ -191,7 +191,7 @@ public final class MainActivity extends AppCompatActivity {
         hero.addView(date);
         String weather=OpenWeatherSources.cached(this,"");
         hero.addView(Ui.help(this,ChineseDates.description(today)+(weather.isEmpty()?"":" · "+weather)));
-        hero.addView(new DayTimeline(this),new LinearLayout.LayoutParams(-1,Ui.dp(this,68)));
+        hero.addView(new DayTimeline(this),new LinearLayout.LayoutParams(-1,Ui.dp(this,92)));
         page.addView(hero);
         LinearLayout actions=Ui.row(this);page.addView(actions);Ui.cell(this,actions,Ui.button(this,"＋ 新建待办",true,()->newRecord("task")));Ui.cell(this,actions,Ui.button(this,"周预览",false,()->showWeek(today)));
         if(!prefs.getBoolean("reduce_motion",false)){Ui.enter(actions,1);}DailyTasks.today(this,page);

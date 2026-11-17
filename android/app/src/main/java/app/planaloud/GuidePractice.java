@@ -15,7 +15,7 @@ final class GuidePractice {
             int selected=i;LinearLayout cell=Ui.column(a);cell.setGravity(Gravity.CENTER);ImageButton icon=new ImageButton(a);icon.setImageDrawable(NavigationIcons.icon(a,indices[i]));icon.setBackgroundColor(android.graphics.Color.TRANSPARENT);icon.setContentDescription("练习切换到"+names[i]);icons[i]=icon;cell.addView(icon,new LinearLayout.LayoutParams(Ui.dp(a,48),Ui.dp(a,48)));cell.addView(Ui.help(a,names[i]));nav.addView(cell,new LinearLayout.LayoutParams(0,-2,1));
             icon.setOnClickListener(v->{for(int j=0;j<icons.length;j++)if(icons[j]!=null){icons[j].setSelected(j==selected);icons[j].setImageTintList(ColorStateList.valueOf(j==selected?Ui.primary(a):Ui.muted(a)));}panel.setText(samples[selected]);});
         }
-        icons[0].performClick();body.addView(panel);body.addView(new DayTimeline(a),new LinearLayout.LayoutParams(-1,Ui.dp(a,68)));
+        icons[0].performClick();body.addView(panel);body.addView(new DayTimeline(a),new LinearLayout.LayoutParams(-1,Ui.dp(a,92)));
         MaterialCheckBox check=new MaterialCheckBox(a);check.setText("练习：完成一项待办");body.addView(check);TextView result=Ui.help(a,"勾选后会看到完成反馈");body.addView(result);check.setOnCheckedChangeListener((button,on)->result.setText(on?"示例待办已完成 ✓ 再点一次可以恢复":"示例待办已恢复，可以再次勾选"));
     }
 }
