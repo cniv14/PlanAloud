@@ -4,7 +4,9 @@
 
 **不注册、不联网、不部署服务器，也能使用本地核心功能。** AI、天气、同步和更新检查均为可选联网能力。
 
-**当前 Android： [1.5.0 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.0/PlanAloud-android.apk)** · [发布页](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.0) · [使用说明](docs/Android-1.5.0.md)
+**Android 1.5.2： [正式 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.2/PlanAloud-android.apk)** · [正式发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.2) · [独立 Debug 发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.2-debug) · [使用说明](docs/Android-1.5.2.md)
+
+1.5.2 使用新的正式签名，不能覆盖旧版安装，请先导出备份。修复底栏高亮、闪烁和左右滑动，新增可跳过的首次使用引导；移除本地语音，默认 DeepSeek ASR。正式包进行代码和资源裁剪，Debug 包单独发布。
 
 **Android 1.5.0 · 序言 / Plan Aloud：** 半透明悬浮助手、月历节日滚动、挂件遮罩、聊天内指令与回收站改进。Android 安装包约 5.2 MB。
 
@@ -12,7 +14,7 @@
 
 助手支持左右聊天气泡、主题色矢量图标、点击图片预览、直接从对话生成课表草稿、修改与软删除现有安排。课表/通知仍需人工核验，助手变更和删除支持版本校验撤销。收集箱可按软件/群聊一键交给AI，见[新版说明](docs/Android-1.3.2.md)。
 
-语音支持系统服务、百炼Qwen-ASR官方API及MIT whisper.cpp本地小模型。录音文字先填入输入框，不直接执行；本地引擎和模型按需获取，不增加常驻内存。本次提供双ARM引擎签名包（每架构约1MB），不附带大模型权重；可自行导入官方多语言GGML .bin或在自托管端发布签名模型。百炼API接入不代表在Android里运行CLI，详见[统一更新与语音](docs/统一更新与语音.md)。
+语音默认使用 DeepSeek 官方 ASR，使用官方 DeepSeek 地址保存 AI 密钥时会同时配置语音。保留系统服务与百炼 Qwen-ASR，语音插件入口和返回协议不变。1.5.2 已移除本地识别引擎、模型下载及原生编译依赖；升级时自动清理旧模型缓存。录音文字先填入输入框，不直接执行。详见[统一更新与语音](docs/统一更新与语音.md)。
 
 主包、模块、引擎和可选模型都可从同一GitHub目录或日栖服务器获取。服务端更新入口必须登录，每账号默认每小时10次，所有设备共享；原同步v1契约保留。Windows不重建。OCR继续暂缓。
 
@@ -59,13 +61,12 @@ Android 使用 JDK 17、Gradle 9.6.1、Android SDK 36，Android Gradle Plugin 9.
 
 ```powershell
 cd android
-python ../tools/fetch_whisper.py
 gradle :app:assembleRelease :app:exportModuleClasspath
 # 可选OCR插件先在仓库根目录运行 python tools/fetch_ocr.py，再执行：
 # gradle :ocrPlugin:assembleRelease
 ```
 
-正式 APK 需要稳定签名。维护者先执行 `python tools/release_keys.py`（仅构建时需 `cryptography`），在本机 `.signing/` 生成 Android 证书与更新签名私钥。**请离线备份此目录；丢失证书将无法为已安装版本提供兼容更新。** 对本项目进行 fork 时应生成自己的密钥、公钥和应用 ID。
+正式 APK 需要稳定签名。维护者先执行 `python tools/release_keys.py --android-only`（仅构建时需 `cryptography`），在本机 `.signing/` 生成 Android 证书与更新签名私钥。**请离线备份此目录；丢失证书将无法为已安装版本提供兼容更新。** 对本项目进行 fork 时应生成自己的密钥、公钥和应用 ID。
 
 ```powershell
 cd windows

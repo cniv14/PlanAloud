@@ -4,13 +4,12 @@ def keyConfig = keyConfigFile.exists() ? new groovy.json.JsonSlurper().parse(key
 android {
     namespace 'app.planaloud'
     compileSdk 36
-    packaging { jniLibs { excludes += ["**/libplanaloud_asr.so"] } }
     defaultConfig {
         applicationId 'app.planaloud'
         minSdk 26
         targetSdk 36
-        versionCode 151
-        versionName '1.5.1-preview.1'
+        versionCode 152
+        versionName '1.5.2'
         testInstrumentationRunner 'app.planaloud.SmokeTest'
     }
     compileOptions {
@@ -33,13 +32,15 @@ android {
         }
     }
     buildTypes {
+        debug { versionNameSuffix "-debug" }
         release {
-            signingConfig signingConfigs.release
+            signingConfig = (keyConfig != null || System.getenv("DAYFLOW_KEYSTORE")) ? signingConfigs.release : null
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    testOptions { unitTests.includeAndroidResources = true }
     sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/thirdPartyAssets').get().asFile)
 }
 tasks.register('generateThirdPartyNotices', Copy) {
@@ -48,6 +49,8 @@ tasks.register('generateThirdPartyNotices', Copy) {
 }
 tasks.named('preBuild').configure { dependsOn 'generateThirdPartyNotices' }
 dependencies {
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.robolectric:robolectric:4.16.1"
     implementation project(':assistantPlugin')
     implementation project(':voicePlugin')
     implementation project(':markdownPlugin')

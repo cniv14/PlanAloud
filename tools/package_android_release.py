@@ -54,7 +54,7 @@ def main():
             archive.write(root/'LICENSE','LICENSE')
             for file in (root/'docs').glob('*.md'):
                 archive.write(file,'docs/'+file.name)
-            for name in ('tools/publish_runtime_update.py','tools/build_runtime_example.py','examples/hotupdate/Entry.java','android/app/src/main/java/app/planaloud/HotModule.java','tools/package_feature_modules.py','tools/package_voice_engine.py','tools/publish_voice_model.py','tools/fetch_whisper.py'):
+            for name in ('tools/publish_runtime_update.py','tools/build_runtime_example.py','examples/hotupdate/Entry.java','android/app/src/main/java/app/planaloud/HotModule.java','tools/package_feature_modules.py'):
                 archive.write(root/name,name)
     publish(root / '.signing/updates-private.pem', output,
             'https://github.com/cniv14/PlanAloud/releases/download/v' + args.version,
@@ -103,9 +103,9 @@ def main():
         shutil.copyfile(apk, output / destination)
         plugin_names.append(destination)
     if args.embedded_modules:
-        for name in ('assistant-module.json','markdown-module.json','almanac-module.json','voice-module.json','voice-engine.json','voice-engine-arm64.zip','voice-engine-armv7.zip'):
+        for name in ('assistant-module.json','markdown-module.json','almanac-module.json','voice-module.json'):
             if not (output/name).is_file():
-                parser.error('Build signed feature and native engine packages first: '+name)
+                parser.error('Build signed feature packages first: '+name)
             plugin_names.append(name)
     for source, name in (('docs/助手API.md', 'AssistantAPI.md'), ('docs/服务端稳定协议.md', 'ServerContract.md'), ('docs/Agent使用.md', 'AgentGuide.md'), ('docs/功能热更新.md', 'RuntimeUpdateAPI.md'), ('docs/统一更新与语音.md', 'UnifiedUpdates.md')):
         shutil.copyfile(root / source, output / name)

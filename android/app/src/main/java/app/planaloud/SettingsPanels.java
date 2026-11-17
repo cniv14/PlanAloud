@@ -31,6 +31,7 @@ public final class SettingsPanels {
         Ui.cell(a,second,Ui.tile(a,"AI 模型","厂商与模型",this::api));
         Ui.cell(a,second,Ui.tile(a,"更新","本体与内嵌模块",this::updates));
         form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
+        form.addView(Ui.button(a,"使用引导",false,()->Onboarding.show(a)));
         form.addView(Ui.button(a,"诊断与导出日志",false,()->Diagnostics.show(a)));
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);

@@ -30,7 +30,7 @@ final class CommandScreen {
         route("sync","同步与备份设置",a->new SettingsPanels(a).sync());route("account","同步账号与地址",a->new SettingsPanels(a).account());route("taskflow","连接 TaskFlow Windows",TaskFlowSettings::show);route("sync-conflicts","同步冲突",a->SyncConflicts.show(a,0));
         route("undo","撤销与误删恢复",UndoHistory::show);route("extensions","内嵌模块与存储",ExtensionHub::show);route("web-import","网页与日历导入",WebImports::show);route("updates","统一更新",UpdateCenter::show);route("licenses","开源许可",a->new SettingsPanels(a).licenses());route("permissions","提醒与精确闹钟权限",AlarmSound::permissions);
         route("voice","语音模块配置",a->a.startActivity(new android.content.Intent().setComponent(new android.content.ComponentName(a,"app.planaloud.voice.MainActivity")).putExtra("settings_only",true)));
-        route("diagnostics","诊断与导出日志",Diagnostics::show);route("settings","设置",a->a.openPage("settings"));route("commands","更多功能",CommandScreen::show);
+        route("guide","使用引导",Onboarding::show);route("diagnostics","诊断与导出日志",Diagnostics::show);route("settings","设置",a->a.openPage("settings"));route("commands","更多功能",CommandScreen::show);
     }
     static JSONArray catalog()throws JSONException{JSONArray result=new JSONArray();for(Map.Entry<String,Route> item:routes.entrySet())result.put(new JSONObject().put("page",item.getKey()).put("title",item.getValue().label));return result;}
     static synchronized String ticket(String page)throws Exception{if(!routes.containsKey(page))throw new Exception("未知页面；用 screen.list 查询");tickets.values().removeIf(t->t.expires<android.os.SystemClock.elapsedRealtime());if(tickets.size()>=20)throw new Exception("待打开的页面过多");String id=UUID.randomUUID().toString();tickets.put(id,new Ticket(page));return id;}

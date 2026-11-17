@@ -1,4 +1,5 @@
 """Create local signing material once. Never publish .signing/ or print secrets."""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -7,6 +8,9 @@ import subprocess
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--android-only',action='store_true',help='Rotate Android trust without changing the Windows public key')
+options=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
 private=root/'.signing';private.mkdir(exist_ok=True)
 keyfile=private/'updates-private.pem'
@@ -16,13 +20,13 @@ if not keyfile.exists():
 else:
     key=serialization.load_pem_private_key(keyfile.read_bytes(),None)
 public=key.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo)
-(root/'update-public.pem').write_bytes(public)
+if not options.android_only:(root/'update-public.pem').write_bytes(public)
 raw=root/'android/app/src/main/res/raw';raw.mkdir(exist_ok=True)
 (raw/'update_public.pem').write_bytes(public)
 config=private/'android.json'
 if not config.exists():
     password=secrets.token_urlsafe(32)
-    keytool=Path(os.environ.get('JAVA_HOME','C:/Program Files/Java/jdk-17'))/'bin/keytool.exe'
+    keytool=Path(os.environ.get('JAVA_HOME','C:/Program Files/Java/jdk-17'))/'bin'/('keytool.exe' if os.name=='nt' else 'keytool')
     if not keytool.exists():
         import shutil
         keytool=shutil.which('keytool')

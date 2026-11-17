@@ -3,7 +3,6 @@
 -keep interface app.planaloud.assistant.ConversationAppearance { *; }
 -keep class app.planaloud.**.R { *; }
 -keep class app.planaloud.**.R$* { *; }
--keep class app.planaloud.voice.NativeSpeech { *; }
 -keep class androidx.appcompat.** { *; }
 -keep class androidx.core.** { *; }
 -keep class androidx.recyclerview.** { *; }
@@ -23,3 +22,6 @@
     @android.webkit.JavascriptInterface <methods>;
     native <methods>;
 }
+
+# Separately loaded voice modules use the host secret bridge by its stable reflection names.
+-keep class app.planaloud.Secrets { public static *; }
