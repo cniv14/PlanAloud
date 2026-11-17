@@ -1,0 +1,5 @@
+PlanAloud-android-debug.apk
+Testing-debug.md
+Signing-Certificates.txt
+source-commit.txt
+SHA256SUMS-debug.txt

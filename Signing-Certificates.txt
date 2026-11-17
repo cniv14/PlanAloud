@@ -1,0 +1,8 @@
+Formal Android 1.5.3 certificate (same as 1.5.2) SHA-256:
+6f1e3abddcce09b2cbdf515b626ffb015760ee42dad1489a61f12aa8c2fd5e9a
+
+Separate Debug certificate SHA-256:
+b9e0a308050219430c770b4e5163b350862405991db49657ce378c456847a6d3
+
+Original Android 1.5.0 certificate SHA-256 (incompatible):
+cc293c2a086882ef8589f90aa6abdcae3254338507d90526509b71a23d0e38e9
