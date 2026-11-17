@@ -87,6 +87,13 @@ public class NavigationAndGuideTest {
         assertNotNull(text(activity.getWindow().getDecorView(),"先认识几个常用操作"));click("下一步");click("稍后配置，先开始使用");
         assertEquals("cloud",prefs.getString("usage_mode",""));assertFalse(prefs.getBoolean("sync_auto",false));assertNull(activity.onboarding);
     }
+    @Test public void existingOfficialDeepSeekUsesAsrOnceAndThenRespectsManualChoice(){
+        prefs.edit().putString("api_url","https://api.deepseek.com/v1").putInt("voice_provider",0).commit();
+        app.planaloud.voice.VoiceSettings.migrate(RuntimeEnvironment.getApplication());assertEquals(3,prefs.getInt("voice_provider",-1));
+        prefs.edit().putInt("voice_provider",0).commit();app.planaloud.voice.VoiceSettings.migrate(RuntimeEnvironment.getApplication());assertEquals(0,prefs.getInt("voice_provider",-1));
+        prefs.edit().clear().putString("api_url","https://example.com/deepseek").putInt("voice_provider",0).commit();
+        app.planaloud.voice.VoiceSettings.migrate(RuntimeEnvironment.getApplication());assertEquals(0,prefs.getInt("voice_provider",-1));
+    }
     @Test public void removedLocalVoiceFilesAreCleanedWithoutDeletingOtherUserFiles()throws Exception{
         java.io.File directory=new java.io.File(RuntimeEnvironment.getApplication().getFilesDir(),"voice");directory.mkdirs();
         java.io.File model=new java.io.File(directory,"ggml-model.bin"),unrelated=new java.io.File(directory,"notes.txt");
