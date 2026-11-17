@@ -76,8 +76,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum -c SHA256SUMS
-          case "$CHANNEL" in stable|debug) ;; *) exit 1 ;; esac
+          case "$CHANNEL" in
+            stable) sha256sum -c SHA256SUMS ;;
+            debug) sha256sum -c SHA256SUMS-debug.txt ;;
+            *) exit 1 ;;
+          esac
           while IFS= read -r asset; do
             [[ "$asset" =~ ^[A-Za-z0-9._-]+$ ]] && [[ -f "$asset" ]] || exit 1
             gh release upload "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --clobber
