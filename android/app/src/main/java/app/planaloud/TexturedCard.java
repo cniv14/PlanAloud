@@ -9,7 +9,7 @@ import org.json.JSONObject;
 final class TexturedCard extends MaterialCardView {
     private Drawable finish;
     TexturedCard(Context c){super(c);}
-    void finish(JSONObject record){if(finish!=null){finish.setVisible(false,false);finish.setCallback(null);}if(CardFinish.mode(getContext(),record).equals("none")){finish=null;invalidate();return;}finish=CardFinish.effect(getContext(),record,Ui.compact(getContext())?16:20);finish.setCallback(this);finish.setBounds(0,0,getWidth(),getHeight());finish.setVisible(isAttachedToWindow()&&getVisibility()==VISIBLE,false);invalidate();}
+    void finish(JSONObject record){if(finish!=null){finish.setVisible(false,false);finish.setCallback(null);}if(CardFinish.mode(getContext(),record).equals("none")&&CardBackgrounds.selected(getContext(),record).equals("color")&&!PriorityPattern.present(record)){finish=null;invalidate();return;}finish=CardFinish.effect(getContext(),record,Ui.compact(getContext())?16:20);finish.setCallback(this);finish.setBounds(0,0,getWidth(),getHeight());finish.setVisible(isAttachedToWindow()&&getVisibility()==VISIBLE,false);invalidate();}
     protected void dispatchDraw(Canvas canvas){if(finish!=null)finish.draw(canvas);super.dispatchDraw(canvas);}
     protected boolean verifyDrawable(Drawable who){return who==finish||super.verifyDrawable(who);}
     protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);if(finish!=null)finish.setBounds(0,0,w,h);}

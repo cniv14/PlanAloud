@@ -50,7 +50,7 @@ public final class AgendaWidget extends AppWidgetProvider {
                 v.setInt(R.id.widget_root,"setBackgroundResource",background==null?(dark?R.drawable.widget_solid_dark:R.drawable.widget_solid):android.R.color.transparent);
                 v.setViewVisibility(R.id.widget_background_image,background==null?View.GONE:View.VISIBLE);if(background!=null)v.setImageViewBitmap(R.id.widget_background_image,background);
                 v.setViewVisibility(R.id.widget_list,grid?View.GONE:View.VISIBLE);v.setViewVisibility(R.id.widget_grid,grid?View.VISIBLE:View.GONE);
-                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/"+(grid?"grid":"list")));
+                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/layout2/"+(grid?"grid":"list")));
                 v.setRemoteAdapter(container,adapter);v.setEmptyView(container,R.id.widget_empty);
                 Intent tap=new Intent(c,WidgetActions.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 v.setPendingIntentTemplate(container,PendingIntent.getBroadcast(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
@@ -58,7 +58,7 @@ public final class AgendaWidget extends AppWidgetProvider {
                 v.setTextViewText(R.id.widget_weather,weather.isEmpty()?"今日待办 · 上下滑动":weather);v.setTextColor(R.id.widget_weather,muted);
                 java.time.LocalTime clock=java.time.LocalTime.now();
                 v.setTextViewText(R.id.widget_day_progress_label,"今日已过 "+DayTime.percent(clock)+"%");v.setTextColor(R.id.widget_day_progress_label,muted);v.setTextColor(R.id.widget_clock,muted);
-                v.setImageViewBitmap(R.id.widget_event_timeline,DayEvents.widget(c,today,manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)));
+                java.util.List<DayEvents.Segment> segments=DayEvents.load(c,today);Bundle options=manager.getAppWidgetOptions(id);int width=options.getInt(c.getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE?AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH:AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240);int height=Ui.dp(c,DayEvents.widgetHeight(segments));v.setInt(R.id.widget_event_timeline,"setMinimumHeight",height);v.setInt(R.id.widget_event_timeline,"setMaxHeight",height);v.setImageViewBitmap(R.id.widget_event_timeline,DayEvents.widget(c,segments,width));
                 v.setOnClickPendingIntent(R.id.widget_timeline,open(c,null,false));
                 v.setTextColor(R.id.widget_empty,muted);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_inbox,ink);
                 v.setViewVisibility(R.id.widget_inbox,notice==null?View.GONE:View.VISIBLE);if(notice!=null){v.setTextViewText(R.id.widget_inbox,"收集箱 "+count+" 条 · "+notice.optString("title"));v.setOnClickPendingIntent(R.id.widget_inbox,open(c,notice,false));}

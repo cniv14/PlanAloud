@@ -12,7 +12,8 @@ import java.util.*;
 final class PlanningFields {
     private static final String[] PRIORITY={"","low","normal","high","urgent"};
     private final TextInputEditText date,time,estimate,color;
-    private final Spinner priority,texture;
+    private final Spinner priority,texture,background;
+    private final java.util.List<String> backgroundIds;
     PlanningFields(MainActivity a,LinearLayout form,JSONObject r){
         form.addView(Ui.text(a,"计划 · 均可留空",16,true));
         LinearLayout pair=Ui.row(a);form.addView(pair);
@@ -25,12 +26,15 @@ final class PlanningFields {
         form.addView(Ui.button(a,"从日历选截止日期",false,()->{try{JSONObject draft=a.editorState.draft();LocalDate day;try{day=LocalDate.parse(draft.optString("due_date"));}catch(Exception e){day=LocalDate.now();}MonthBrowser.select(a,day,d->{try{a.edit(draft.put("due_date",d.toString()));}catch(Exception e){a.message(e.getMessage());}},()->a.edit(draft),false);}catch(Exception e){a.message(e.getMessage());}}));
         LinearLayout details=Ui.row(a),el=Ui.column(a),pr=Ui.column(a);form.addView(details);Ui.cell(a,details,el);Ui.cell(a,details,pr);
         estimate=Ui.field(a,el,"预计用时 · 分钟",r.has("estimate_minutes")?r.optString("estimate_minutes"):"",false);estimate.setInputType(InputType.TYPE_CLASS_NUMBER);
-        priority=TaskTypes.spinner(a,pr,"重要程度",Arrays.asList("未设定","低优先","普通","重要","紧急"));priority.setSelection(Math.max(0,Arrays.asList(PRIORITY).indexOf(r.optString("priority"))));
+        priority=TaskTypes.spinner(a,pr,"重要程度",Arrays.asList("未设定","● 低优先","◆ 普通","✦ 重要","▲ 紧急"));priority.setSelection(Math.max(0,Arrays.asList(PRIORITY).indexOf(r.optString("priority"))));
         color=Ui.field(a,form,"事件底色 · #RRGGBB，留空自动",r.optString("color"),false);
-        form.addView(Ui.help(a,"不同事件自动分色，同一事件／重复系列保持同色，同名课程按组配色；未设优先级时无边框。"));
+        form.addView(Ui.help(a,"不同事件自动分色，同一事件／重复系列保持同色，同名课程按组配色；重要程度使用图案标记，不使用边框。"));
         java.util.List<String> finishes=new java.util.ArrayList<>();finishes.add("跟随全局卡片设置");finishes.addAll(java.util.Arrays.asList(CardFinish.LABELS));texture=TaskTypes.spinner(a,form,"本事件卡片质感",finishes);texture.setSelection(r.has("card_texture")?Math.max(0,java.util.Arrays.asList(CardFinish.VALUES).indexOf(r.optString("card_texture"))+1):0);
+        backgroundIds=new java.util.ArrayList<>();backgroundIds.add("");backgroundIds.addAll(CardBackgrounds.ids(a));java.util.List<String> backgrounds=new java.util.ArrayList<>();backgrounds.add("跟随默认卡片背景");backgrounds.addAll(CardBackgrounds.names(a));background=TaskTypes.spinner(a,form,"日程卡片背景",backgrounds);int selected=backgroundIds.indexOf(r.optString("card_background"));if(selected<0){backgroundIds.add(r.optString("card_background"));backgrounds.add("背景在本机不可用（保留引用）");background.setAdapter(new android.widget.ArrayAdapter<>(a,android.R.layout.simple_spinner_dropdown_item,backgrounds));selected=backgroundIds.size()-1;}background.setSelection(Math.max(0,selected));form.addView(Ui.button(a,"命名导入并裁切新背景",false,()->CardBackgrounds.beginImport(a,true)));
+
     }
     void apply(JSONObject r)throws JSONException{
+        String chosen=backgroundIds.get(background.getSelectedItemPosition());if(chosen.isEmpty())r.remove("card_background");else r.put("card_background",chosen);
         if(texture.getSelectedItemPosition()==0)r.remove("card_texture");else r.put("card_texture",CardFinish.VALUES[texture.getSelectedItemPosition()-1]);
         String tint=color.getText().toString().trim();if(tint.isEmpty())r.remove("color");else r.put("color",tint);
         r.put("due_date",date.getText().toString().trim()).put("due_time",time.getText().toString().trim());
@@ -38,6 +42,7 @@ final class PlanningFields {
         if(priority.getSelectedItemPosition()<=0)r.remove("priority");else r.put("priority",PRIORITY[priority.getSelectedItemPosition()]);
     }
     static void validate(JSONObject r)throws Exception{
+        if(r.has("card_background")&&!CardBackgrounds.valid(r.optString("card_background")))throw new Exception("无效卡片背景引用");
         if(r.has("card_texture")&&!java.util.Arrays.asList(CardFinish.VALUES).contains(r.optString("card_texture")))throw new Exception("无效卡片质感");
         String tint=r.optString("color");if(!tint.isEmpty()&&!tint.matches("#[0-9a-fA-F]{6}"))throw new Exception("事件颜色格式为 #RRGGBB，或留空自动");
         String time=r.optString("due_time");if(!time.isEmpty()&&(r.optString("due_date").isEmpty()||!time.matches("[0-9]{2}:[0-9]{2}")))throw new Exception("截止时刻需同时填写日期，时刻格式为 HH:mm");

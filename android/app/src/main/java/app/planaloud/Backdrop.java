@@ -33,7 +33,7 @@ public final class Backdrop extends View {
     private boolean loading,released;private int generation;
     private final Runnable tick=()->refreshWallpaper();
     public Backdrop(Context c){super(c);prefs=c.getSharedPreferences("settings",0);setLayerType(View.LAYER_TYPE_HARDWARE,null);}
-    public void load(){
+    public void load(){CardBackgrounds.refreshWallpaper();
         surface=Ui.surface(getContext());accent=Ui.primary(getContext());updateGlassLights();
         opacity=prefs.getInt("opacity",86);
         if(Build.VERSION.SDK_INT>=31)setRenderEffect(prefs.getBoolean("blur",true)?RenderEffect.createBlurEffect(18,18,Shader.TileMode.CLAMP):null);

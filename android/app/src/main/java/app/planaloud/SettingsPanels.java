@@ -49,9 +49,10 @@ public final class SettingsPanels {
         toggle(form,"减少序言动效","保留布局，关闭主要过渡与壁纸切换动画。",p.getBoolean("reduce_motion",false),on->p.edit().putBoolean("reduce_motion",on).apply());
         toggle(form,"紧凑列表与表格","减少卡片和表格留白，操作区域仍至少48dp。",p.getBoolean("compact_ui",false),on->{p.edit().putBoolean("compact_ui",on).apply();a.recreate();});
         AppearanceTiles.add(a,form);
-        form.addView(Ui.tile(a,"卡片质感","无、哑光、玻璃、流光 · 默认无",()->CardAppearance.show(a)));
+        form.addView(Ui.tile(a,"日程卡片背景","命名图片、裁切、SVG 与动态背景",()->CardBackgrounds.show(a)));
+        form.addView(Ui.tile(a,"卡片质感","无、哑光、玻璃、流光、渐变 · 默认无",()->CardAppearance.show(a)));
         ThemeColors.settings(a,form);
-        toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();}});form.addView(slider);
+        toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();AgendaWidget.refresh(a);});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();AgendaWidget.refresh(a);}});form.addView(slider);
     }
     void widget(Runnable back){
         LinearLayout page=a.fullPage("桌面小组件",back);page.addView(Ui.text(a,"桌面小组件",24,true));

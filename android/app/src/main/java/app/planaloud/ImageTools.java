@@ -13,7 +13,10 @@ import java.util.function.Consumer;
 final class ImageTools {
     static void crop(MainActivity a,Uri input,Consumer<Uri> next){crop(a,input,"裁剪截图",next);}
     static void crop(MainActivity a,Uri input,String title,Consumer<Uri> next){
-        LinearLayout page=a.editorPage(title,a::home);TextView help=Ui.help(a,"拖动边框调整范围，双指缩放图片；也可以旋转或使用整图。");help.setPadding(Ui.dp(a,16),Ui.dp(a,12),Ui.dp(a,16),0);page.addView(help);
+        crop(a,input,title,next,a::home);
+    }
+    static void crop(MainActivity a,Uri input,String title,Consumer<Uri> next,Runnable back){
+        LinearLayout page=a.editorPage(title,back);TextView help=Ui.help(a,"拖动边框调整范围，双指缩放图片；也可以旋转或使用整图。");help.setPadding(Ui.dp(a,16),Ui.dp(a,12),Ui.dp(a,16),0);page.addView(help);
         FrameLayout area=new FrameLayout(a);CropImageView crop=new CropImageView(a);area.addView(crop,new FrameLayout.LayoutParams(-1,-1));
         View blocker=new View(a);blocker.setOnTouchListener((v,event)->true);area.addView(blocker,new FrameLayout.LayoutParams(-1,-1));page.addView(area,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout buttons=Ui.row(a);page.addView(buttons);boolean[] working={true},ready={false};Bitmap[] source={null};Uri[] output={null};

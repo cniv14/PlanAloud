@@ -13,7 +13,7 @@ import java.util.*;
 public final class ModuleUpdates {
  static final String[] IDS={"assistant","markdown","almanac","voice"};
  // Same-version consolidated rebuild must reject older downloaded module entry points.
- private static final long BUILTIN_MODULE_CODE=157001;
+ private static final long BUILTIN_MODULE_CODE=158001;
  private static Context context;private static final Map<String,ClassLoader> loaders=new HashMap<>();private static volatile String active;
  static String idForPackage(String pkg){for(String id:IDS)if(("app.planaloud."+id).equals(pkg))return id;return null;}
  static void init(Context c){context=c.getApplicationContext();UpdateSources.migrate(c);String failed=UpdateSources.prefs(c).getString("module_launching","");if(!failed.isEmpty())disable(failed,"上次模块未能启动，已使用内置版本");}
