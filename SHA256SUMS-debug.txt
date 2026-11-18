@@ -1,0 +1,2 @@
+b103c325caf247ee1c7c9a369816b0dc16a2468b4404c59e9f808f9a926985a7  PlanAloud-android-debug.apk
+3f3b5ca26a0ed92f6496f3121f382de9dccfe5341b0997c43baaa54fd8818e5a  CHANGELOG-debug.md
