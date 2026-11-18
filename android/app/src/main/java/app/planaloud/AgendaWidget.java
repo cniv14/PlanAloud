@@ -46,25 +46,21 @@ public final class AgendaWidget extends AppWidgetProvider {
             try{
                 boolean grid="grid".equals(prefs(c).getString("widget_layout","list"))&&manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)>=205;
                 int container=grid?R.id.widget_grid:R.id.widget_list;
-                RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);
+                RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget_agenda);
                 v.setInt(R.id.widget_root,"setBackgroundResource",background==null?(dark?R.drawable.widget_solid_dark:R.drawable.widget_solid):android.R.color.transparent);
-                v.setViewVisibility(R.id.widget_background_image,background==null?View.GONE:View.VISIBLE);if(background!=null)v.setImageViewBitmap(R.id.widget_background_image,background);
+                v.setViewVisibility(R.id.widget_background_image,background==null?View.GONE:View.VISIBLE);if(background!=null)WidgetImages.set(v,R.id.widget_background_image,background);
                 v.setViewVisibility(R.id.widget_list,grid?View.GONE:View.VISIBLE);v.setViewVisibility(R.id.widget_grid,grid?View.VISIBLE:View.GONE);
-                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/layout2/"+(grid?"grid":"list")));
+                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/animated-styles4/"+(grid?"grid":"list")));
                 v.setRemoteAdapter(container,adapter);v.setEmptyView(container,R.id.widget_empty);
                 Intent tap=new Intent(c,WidgetActions.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 v.setPendingIntentTemplate(container,PendingIntent.getBroadcast(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
                 v.setTextViewText(R.id.widget_date,today.format(DateTimeFormatter.ofPattern("M月d日 EEE",Locale.CHINA)));v.setTextColor(R.id.widget_date,ink);
                 v.setTextViewText(R.id.widget_weather,weather.isEmpty()?"今日待办 · 上下滑动":weather);v.setTextColor(R.id.widget_weather,muted);
-                java.time.LocalTime clock=java.time.LocalTime.now();
-                v.setTextViewText(R.id.widget_day_progress_label,"今日已过 "+DayTime.percent(clock)+"%");v.setTextColor(R.id.widget_day_progress_label,muted);v.setTextColor(R.id.widget_clock,muted);
-                java.util.List<DayEvents.Segment> segments=DayEvents.load(c,today);Bundle options=manager.getAppWidgetOptions(id);int width=options.getInt(c.getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE?AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH:AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240);int height=Ui.dp(c,DayEvents.widgetHeight(segments));v.setInt(R.id.widget_event_timeline,"setMinimumHeight",height);v.setInt(R.id.widget_event_timeline,"setMaxHeight",height);v.setImageViewBitmap(R.id.widget_event_timeline,DayEvents.widget(c,segments,width));
-                v.setOnClickPendingIntent(R.id.widget_timeline,open(c,null,false));
                 v.setTextColor(R.id.widget_empty,muted);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_inbox,ink);
                 v.setViewVisibility(R.id.widget_inbox,notice==null?View.GONE:View.VISIBLE);if(notice!=null){v.setTextViewText(R.id.widget_inbox,"收集箱 "+count+" 条 · "+notice.optString("title"));v.setOnClickPendingIntent(R.id.widget_inbox,open(c,notice,false));}
                 v.setOnClickPendingIntent(R.id.widget_add,open(c,null,true));v.setOnClickPendingIntent(R.id.widget_header,open(c,null,false));v.setOnClickPendingIntent(R.id.widget_empty,open(c,null,true));
                 manager.updateAppWidget(id,v);manager.notifyAppWidgetViewDataChanged(id,container);
-            }catch(RuntimeException ignored){}
+            }catch(RuntimeException error){Diagnostics.record(c,"agenda-widget",error);}
         }
     }
     static void schedule(Context c,AppWidgetManager m){AlarmManager alarms=c.getSystemService(AlarmManager.class);if(m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)).length+m.getAppWidgetIds(new ComponentName(c,TwoDayWidget.class)).length==0)alarms.cancel(progressIntent(c));else alarms.set(AlarmManager.ELAPSED_REALTIME,android.os.SystemClock.elapsedRealtime()+15*60000L,progressIntent(c));}

@@ -76,7 +76,7 @@ public class FeedbackUiTest {
     }
     @Test public void eventColorsClipAtMidnightAndSeparateOverlaps()throws Exception{
         LocalDate day=LocalDate.of(2099,1,2);JSONObject first=Data.make("event","跨天").put("start_at",day.minusDays(1).atTime(23,0).toString()).put("end_at",day.atTime(1,0).toString());JSONObject second=Data.make("event","重叠").put("start_at",day.atTime(0,30).toString()).put("end_at",day.atTime(2,0).toString());Data.get(activity).save(first);Data.get(activity).save(second);
-        java.util.List<DayEvents.Segment> events=DayEvents.load(activity,day);assertEquals(2,events.size());assertEquals(0,events.get(0).start);assertEquals(60,events.get(0).end);assertEquals(30,events.get(1).start);assertEquals(120,events.get(1).end);assertNotEquals(events.get(0).lane,events.get(1).lane);assertEquals(255,Color.alpha(events.get(0).color));assertEquals("00:00–01:00 · 跨天",events.get(0).label());assertNotNull(DayEvents.widget(activity,day));
+        java.util.List<DayEvents.Segment> events=DayEvents.load(activity,day);assertEquals(2,events.size());assertEquals(0,events.get(0).start);assertEquals(60,events.get(0).end);assertEquals(30,events.get(1).start);assertEquals(120,events.get(1).end);assertNotEquals(events.get(0).lane,events.get(1).lane);assertEquals(255,Color.alpha(events.get(0).color));assertEquals("00:00–01:00 · 跨天",events.get(0).label());
     }
     @Test public void widgetCompletionUpdatesDataWithoutOpeningActivity()throws Exception{
         JSONObject record=Data.make("task","组件勾选");Data.get(activity).save(record);org.robolectric.shadows.ShadowApplication app=shadowOf((Application)activity.getApplicationContext());while(app.getNextStartedActivity()!=null){}

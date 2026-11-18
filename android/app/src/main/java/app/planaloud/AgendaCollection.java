@@ -22,11 +22,11 @@ public final class AgendaCollection extends RemoteViewsService {
             JSONObject r=rows.optJSONObject(n);if(r==null)return null;boolean dark=AgendaWidget.dark(c);
             RemoteViews v=new RemoteViews(c.getPackageName(),detailed?R.layout.widget_item_detailed:R.layout.widget_item);
             java.time.LocalDateTime now=java.time.LocalDateTime.now();
-            v.setImageViewBitmap(R.id.widget_item_background,EventColors.widget(c,r,false));
-            v.setViewVisibility(R.id.widget_priority_pattern,PriorityPattern.present(r)?android.view.View.VISIBLE:android.view.View.GONE);if(PriorityPattern.present(r)){v.setImageViewBitmap(R.id.widget_priority_pattern,PriorityPattern.bitmap(r));v.setContentDescription(R.id.widget_priority_pattern,PriorityPattern.label(r));}v.setTextViewText(R.id.widget_item_title,r.optString("title"));
+            WidgetCardStyle.apply(c,v,r,false);
+            v.setViewVisibility(R.id.widget_priority_pattern,PriorityPattern.present(r)?android.view.View.VISIBLE:android.view.View.GONE);if(PriorityPattern.present(r)){WidgetImages.set(v,R.id.widget_priority_pattern,PriorityPattern.bitmap(r));v.setContentDescription(R.id.widget_priority_pattern,PriorityPattern.label(r));}v.setTextViewText(R.id.widget_item_title,r.optString("title"));
             String meta=DayAgenda.meta(r,now.toLocalDate());
             v.setTextViewText(R.id.widget_item_meta,meta);
-            v.setTextColor(R.id.widget_item_title,dark?0xffeef5fa:0xff1b2730);v.setTextColor(R.id.widget_item_meta,dark?0xffc8d7e4:0xff445664);v.setTextColor(R.id.widget_item_done,ThemeColors.accent(c,dark));
+            v.setTextColor(R.id.widget_item_title,EventColors.ink(c,r));v.setTextColor(R.id.widget_item_meta,EventColors.ink(c,r));v.setTextColor(R.id.widget_item_done,EventColors.ink(c,r));
             Intent row=new Intent().putExtra("record_id",r.optString("id")).putExtra("series_id",r.optString("series_id")).putExtra("occurrence_date",r.optString("occurrence_date"));
             v.setOnClickFillInIntent(R.id.widget_item,row);v.setOnClickFillInIntent(R.id.widget_item_open,row);v.setOnClickFillInIntent(R.id.widget_item_done,new Intent(row).putExtra("complete",true));return v;
         }

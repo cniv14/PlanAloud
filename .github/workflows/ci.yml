@@ -9,7 +9,7 @@ on:
       asset_ref:
         description: 'Repository ref containing checksummed release files'
         type: string
-        default: 'builds/android-1.5.8'
+        default: 'builds/android-1.5.9'
       asset_channel:
         description: 'Upload formal or Debug assets separately'
         type: choice

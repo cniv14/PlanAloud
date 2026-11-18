@@ -35,8 +35,7 @@ final class DayEvents {
     static java.util.List<Segment> at(java.util.List<Segment> events,LocalTime now){int minute=DayTime.minute(now);java.util.List<Segment> active=new ArrayList<>();for(Segment event:events)if(event.start<=minute&&minute<event.end)active.add(event);return active;}
     static final class Tracks {
         final float main,outer,gap,top,height;final int count;
-        Tracks(List<Segment> events,float main,float gap){this(events,main,main*.75f,gap);}
-        Tracks(List<Segment> events,float main,float outer,float gap){this.main=main;this.outer=outer;this.gap=gap;count=lanes(events);top=(count/2)*(outer+gap);height=top+main+((count-1)/2)*(outer+gap);}
+        Tracks(List<Segment> events,float main,float gap){this.main=main;this.outer=main;this.gap=gap;count=lanes(events);top=(count/2)*(outer+gap);height=top+main+((count-1)/2)*(outer+gap);}
         float y(Segment event){if(event.lane==0)return top;int row=(event.lane+1)/2;return event.lane%2==1?top-row*(outer+gap):top+main+gap+(row-1)*(outer+gap);}
         float thickness(Segment event){return event.lane==0?main:outer;}
     }
@@ -44,11 +43,5 @@ final class DayEvents {
     static void draw(Canvas canvas,Paint paint,List<Segment> events,float left,float top,float width,float thickness,int outline){draw(canvas,paint,events,left,top,width,tracks(events,thickness,thickness*.5f),outline);}
     static void draw(Canvas canvas,Paint paint,List<Segment> events,float left,float top,float width,Tracks tracks,int outline){
         for(Segment s:events){float x=left+width*s.start/1440f,right=Math.max(left+width*s.end/1440f,x+1),y=top+tracks.y(s),height=tracks.thickness(s),bottom=y+height,radius=height/2;paint.setStyle(Paint.Style.FILL);paint.setColor(s.color);canvas.drawRoundRect(x,y,right,bottom,radius,radius,paint);}
-    }
-    static Bitmap widget(Context c,LocalDate day){return widget(c,day,240);}
-    static int widgetHeight(List<Segment> events){return (int)Math.ceil(new Tracks(events,6,2,.75f).height+16);}
-    static Bitmap widget(Context c,LocalDate day,int widgetWidth){return widget(c,load(c,day),widgetWidth);}
-    static Bitmap widget(Context c,List<Segment> events,int widgetWidth){
-        float width=Math.max(100,widgetWidth-20),scale=900/width;Tracks tracks=new Tracks(events,6,2,.75f);float padding=8;Bitmap image=Bitmap.createBitmap(900,Math.max(1,(int)Math.ceil((tracks.height+2*padding)*scale)),Bitmap.Config.ARGB_8888);image.setDensity(Bitmap.DENSITY_NONE);Canvas canvas=new Canvas(image);canvas.scale(scale,scale);Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);float top=padding+tracks.top;Path capsule=new Path();capsule.addRoundRect(new RectF(0,top,width,top+tracks.main),3,3,Path.Direction.CW);canvas.save();canvas.clipPath(capsule);paint.setColor(0x445f7188);canvas.drawRect(0,top,width,top+tracks.main,paint);paint.setColor(0x665298e5);float current=width*DayTime.minute(LocalTime.now())/1440f;canvas.drawRect(0,top,current,top+tracks.main,paint);canvas.restore();draw(canvas,paint,events,0,padding,width,tracks,0);paint.setColor(ThemeColors.accent(c,AgendaWidget.dark(c)));paint.setStrokeWidth(1.3f);canvas.drawLine(current,2,current,tracks.height+padding*2-2,paint);canvas.drawCircle(current,2,1.8f,paint);return image;
     }
 }

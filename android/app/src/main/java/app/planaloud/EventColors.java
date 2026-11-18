@@ -4,13 +4,18 @@ import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
 import org.json.JSONObject;
 
-/** Event identity controls the fill; explicit importance controls only the outside border. */
+/** Event fills are independent of night mode; text follows the actual fill contrast. */
 final class EventColors {
     static boolean important(JSONObject r){return !r.optString("priority").isEmpty();}
     static int border(Context c,JSONObject r){return 0;}
     static int border(JSONObject r,int neutral){return 0;}
-    static int lightFill(JSONObject r){int base=DayEvents.color(r);return r.optString("color").matches("#[0-9a-fA-F]{6}")?androidx.core.graphics.ColorUtils.blendARGB(base,Color.WHITE,.58f):base;}
-    static int fill(Context c,JSONObject r){int base=lightFill(r);int fill=AgendaWidget.dark(c)?androidx.core.graphics.ColorUtils.blendARGB(base,Ui.surface(c),.66f):base;return CardFinish.mode(c,r).equals("glass")?LiquidGlass.tint(fill,205):fill;}
+    static int lightFill(JSONObject r){return DayEvents.color(r);}
+    static int fill(Context c,JSONObject r){int fill=lightFill(r);return CardFinish.mode(c,r).equals("glass")?LiquidGlass.tint(fill,205):fill;}
+    static int ink(JSONObject r){return androidx.core.graphics.ColorUtils.calculateLuminance(lightFill(r))>.40?0xff202632:Color.WHITE;}
+    static int ink(Context c,JSONObject r){String style=CardBackgrounds.selected(c,r);return style.equals("color")||style.equals("motion:ripple")||style.equals("motion:stars")||style.equals("motion:meteors")?ink(r):0xff202632;}
+    static void contrast(android.view.View view,JSONObject r){contrastColor(view,ink(view.getContext(),r));}
+    private static void contrastColor(android.view.View view,int color){if(view instanceof android.widget.TextView text&&text.getCurrentTextColor()!=color)text.setTextColor(color);if(view instanceof android.widget.CompoundButton button){android.content.res.ColorStateList tint=button.getButtonTintList();if(tint==null||tint.getDefaultColor()!=color)button.setButtonTintList(android.content.res.ColorStateList.valueOf(color));}if(view instanceof android.view.ViewGroup group)for(int i=0;i<group.getChildCount();i++)contrastColor(group.getChildAt(i),color);}
     static android.graphics.drawable.Drawable shape(Context c,JSONObject r,float radius){return CardFinish.background(c,r,radius);}
-    static Bitmap widget(Context c,JSONObject r,boolean twoDay){boolean dark=twoDay||AgendaWidget.dark(c);Bitmap image=Bitmap.createBitmap(300,110,Bitmap.Config.ARGB_8888);Canvas canvas=new Canvas(image);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int base=DayEvents.color(r);if(r.optString("color").matches("#[0-9a-fA-F]{6}"))base=androidx.core.graphics.ColorUtils.blendARGB(base,Color.WHITE,.58f);p.setColor(dark?androidx.core.graphics.ColorUtils.blendARGB(base,0xff1b1b30,.66f):base);RectF area=new RectF(1,1,299,109);canvas.drawRoundRect(area,12,12,p);CardBackgrounds.paint(c,canvas,area,12,r,.5f,true,null,p.getColor());CardFinish.texture(canvas,area,12,CardFinish.mode(c,r),base,.5f);return image;}
+    static Bitmap widget(Context c,JSONObject r,boolean twoDay){return widget(c,r,.5f,300,110);}
+    static Bitmap widget(Context c,JSONObject r,float phase,int width,int height){Bitmap image=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);image.setDensity(Bitmap.DENSITY_NONE);Canvas canvas=new Canvas(image);canvas.scale(width/300f,height/110f);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int base=lightFill(r);p.setColor(fill(c,r));RectF area=new RectF(1,1,299,109);canvas.drawRoundRect(area,12,12,p);CardBackgrounds.paint(c,canvas,area,12,r,phase,true,null,fill(c,r));CardFinish.texture(canvas,area,12,CardFinish.mode(c,r),base,phase);return image;}
 }
