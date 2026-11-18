@@ -71,7 +71,7 @@ public final class MainActivity extends AppCompatActivity {
         moreFeaturesScroll=0;
         renderHome();
     }
-    public void onCreate(Bundle state){super.onCreate(state);ThemeColors.apply(this);WindowCompat.setDecorFitsSystemWindows(getWindow(),false);prefs=getSharedPreferences("settings",0);tab=HomeNavigation.first(visibleNavigationMask());Onboarding.prepare(prefs,!prefs.contains("device_id"));ProviderAppearance.syncLauncher(this,prefs);if(!prefs.contains("device_id"))prefs.edit().putString("device_id",UUID.randomUUID().toString()).apply();locationWeather=new LocationWeather(this);
+    public void onCreate(Bundle state){super.onCreate(state);ThemeColors.apply(this);WindowCompat.setDecorFitsSystemWindows(getWindow(),false);prefs=getSharedPreferences("settings",0);weekStart=WeekOptions.first(this,weekStart);tab=HomeNavigation.first(visibleNavigationMask());Onboarding.prepare(prefs,!prefs.contains("device_id"));ProviderAppearance.syncLauncher(this,prefs);if(!prefs.contains("device_id"))prefs.edit().putString("device_id",UUID.randomUUID().toString()).apply();locationWeather=new LocationWeather(this);
         NotificationManager channels=getSystemService(NotificationManager.class);NotificationChannel schedule=new NotificationChannel("schedule","日程提醒",NotificationManager.IMPORTANCE_HIGH);schedule.setDescription("日程到点提醒；闹钟响铃使用独立前台服务");schedule.enableVibration(true);schedule.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());channels.createNotificationChannel(schedule);
         FrameLayout base=new FrameLayout(this);backdrop=new Backdrop(this);base.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));shell=Ui.column(this);base.addView(shell,new FrameLayout.LayoutParams(-1,-1));setContentView(base);
         ViewCompat.setOnApplyWindowInsetsListener(base,(v,insets)->{androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());androidx.core.graphics.Insets ime=insets.getInsets(WindowInsetsCompat.Type.ime());shell.setPadding(bars.left,bars.top,bars.right,bars.bottom);if(content!=null)content.setPadding(0,0,0,Math.max(0,ime.bottom-bars.bottom-(rootPage&&navigationBar!=null?navigationBar.getHeight():0)));return WindowInsetsCompat.CONSUMED;});
@@ -123,8 +123,8 @@ public final class MainActivity extends AppCompatActivity {
         assistantRowLayout.setMargins(Ui.dp(this,16),Ui.dp(this,4),Ui.dp(this,16),0);
         shell.addView(agentRow,assistantRowLayout);
         agentBar=Ui.button(this,"问序言 AI",true,()->AssistantPlugin.open(this));
-        com.google.android.material.button.MaterialButton mic=Ui.iconButton(this,"",android.R.drawable.ic_btn_speak_now,false,()->message("按住麦克风说话"));agentRow.addView(mic,new LinearLayout.LayoutParams(Ui.dp(this,44),-1));VoiceBridge.bind(this,mic,text->AssistantPlugin.draft(this,text),value->{agentBar.setText(value);});
-        agentRow.addView(agentBar,new LinearLayout.LayoutParams(0,-1,1));
+        FrameLayout aiContainer=new FrameLayout(this);aiContainer.addView(agentBar,new FrameLayout.LayoutParams(-1,-1));agentBar.setPadding(Ui.dp(this,48),0,Ui.dp(this,14),0);android.widget.ImageButton mic=new android.widget.ImageButton(this);mic.setImageResource(android.R.drawable.ic_btn_speak_now);mic.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.color(this,com.google.android.material.R.attr.colorOnPrimary)));mic.setBackgroundColor(Color.TRANSPARENT);aiContainer.addView(mic,new FrameLayout.LayoutParams(Ui.dp(this,48),Ui.dp(this,48),Gravity.START|Gravity.CENTER_VERTICAL));VoiceBridge.bind(this,mic,text->AssistantPlugin.draft(this,text),value->agentBar.setText(value));
+        agentRow.addView(aiContainer,new LinearLayout.LayoutParams(0,-1,1));
         com.google.android.material.button.MaterialButton floating=Ui.iconButton(this,"",R.drawable.ic_floating_ai,false,()->FloatingAssistant.toggle(this));
         floating.setStrokeWidth(0);floating.setContentDescription("悬浮助手");floating.setTooltipText("悬浮助手");
         agentBar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
@@ -133,7 +133,7 @@ public final class MainActivity extends AppCompatActivity {
                 LiquidGlass.tint(Ui.surface(this),202)));
         LinearLayout.LayoutParams floatingLayout=new LinearLayout.LayoutParams(Ui.dp(this,52),-1);
         floatingLayout.setMarginStart(Ui.dp(this,8));agentRow.addView(floating,floatingLayout);
-        navigationBar=new BottomNavigationView(this);navigationBar.setItemHorizontalTranslationEnabled(false);navigationBar.setItemActiveIndicatorEnabled(true);navigationBar.setLabelVisibilityMode(BottomNavigationView.LABEL_VISIBILITY_LABELED);String[] labels={"今天","笔记","日程","收集箱","设置"};int[] icons={R.drawable.ic_calendar,R.drawable.ic_note,R.drawable.ic_schedule,R.drawable.ic_inbox,R.drawable.ic_settings};refreshNavigation();navigationBar.setPadding(0,0,0,0);navigationBar.setMinimumHeight(Ui.dp(this,64));navigationBar.setBackgroundColor(Color.TRANSPARENT);navigationBar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.TRANSPARENT));navigationBar.setElevation(0);navigationBar.setItemIconSize(Ui.dp(this,27));navigationBar.setItemIconTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{Ui.primary(this),Ui.muted(this)}));getWindow().setNavigationBarColor(Color.TRANSPARENT);if(Build.VERSION.SDK_INT>=29)getWindow().setNavigationBarContrastEnforced(false);LinearLayout.LayoutParams navLayout=new LinearLayout.LayoutParams(-1,-2);
+        navigationBar=new BottomNavigationView(this);navigationBar.setItemHorizontalTranslationEnabled(false);navigationBar.setItemActiveIndicatorEnabled(true);navigationBar.setLabelVisibilityMode(BottomNavigationView.LABEL_VISIBILITY_LABELED);String[] labels={UiStyle.neo(this)?"今日":"今天","笔记","日程","收集箱","设置"};int[] icons={R.drawable.ic_calendar,R.drawable.ic_note,R.drawable.ic_schedule,R.drawable.ic_inbox,R.drawable.ic_settings};refreshNavigation();navigationBar.setPadding(0,0,0,0);navigationBar.setMinimumHeight(Ui.dp(this,64));navigationBar.setBackgroundColor(Color.TRANSPARENT);navigationBar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.TRANSPARENT));navigationBar.setElevation(0);navigationBar.setItemIconSize(Ui.dp(this,27));navigationBar.setItemIconTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{Ui.primary(this),Ui.muted(this)}));getWindow().setNavigationBarColor(Color.TRANSPARENT);if(Build.VERSION.SDK_INT>=29)getWindow().setNavigationBarContrastEnforced(false);LinearLayout.LayoutParams navLayout=new LinearLayout.LayoutParams(-1,-2);
         navLayout.setMargins(Ui.dp(this,12),Ui.dp(this,5),Ui.dp(this,12),Ui.dp(this,4));
         navigationBar.setBackgroundTintList(null);
         navigationBar.setBackground(LiquidGlass.panel(this,26));
@@ -148,7 +148,7 @@ public final class MainActivity extends AppCompatActivity {
     LinearLayout neoPage(){scaffold("Neo",null,true);return fixedWeekForm();}
     LinearLayout timetablePage(){scaffold("今天",null,true);return fixedWeekForm();}
     void showTimetableDay(LocalDate date){selected=date;tab="agenda";weekPreview=false;renderHome();}
-    private int visibleNavigationMask(){return HomeNavigation.mask(prefs.getBoolean("home_today",true),prefs.getBoolean("home_notes",false),prefs.getBoolean("home_schedule",true),prefs.getBoolean("home_inbox",false));}
+    private int visibleNavigationMask(){if(UiStyle.neo(this))return HomeNavigation.WEEK|1;return HomeNavigation.mask(prefs.getBoolean("home_today",true),prefs.getBoolean("home_notes",false),prefs.getBoolean("home_schedule",true),prefs.getBoolean("home_inbox",false));}
     private boolean homeTabVisible(int index){return (visibleNavigationMask()&(1<<index))!=0;}
     void refreshNavigation(){
         if(navigationBar==null)return;
@@ -157,7 +157,7 @@ public final class MainActivity extends AppCompatActivity {
         navigationMask=mask;selectingTab=true;
         try{
             navigationBar.getMenu().clear();
-            String[] labels={"今天","笔记","日程","收集箱","设置","周预览"};boolean overflow=HomeNavigation.pages(mask).size()>5;
+            String[] labels={UiStyle.neo(this)?"今日":"今天","笔记","日程","收集箱","设置","周预览"};boolean overflow=HomeNavigation.pages(mask).size()>5;
             for(String page:HomeNavigation.pages(mask)){int n=HomeNavigation.itemId(page)-100;if(overflow&&(n==1||n==3))continue;if(overflow&&n==4)navigationBar.getMenu().add(0,106,4,"更多").setIcon(R.drawable.ic_more).setCheckable(true);navigationBar.getMenu().add(0,100+n,HomeNavigation.pages(mask).indexOf(page),labels[n]).setIcon(NavigationIcons.icon(this,n)).setCheckable(true);}
             if(!handlingNavigationTap)syncNavigationSelection();
         }finally{selectingTab=false;}
@@ -192,7 +192,7 @@ public final class MainActivity extends AppCompatActivity {
             if(position>0)scroll.post(()->{if(scheduleScroll==scroll)scroll.scrollTo(0,position);});
             return;
         }
-        if(tab.equals("week")){WeekPreview.show(this,page,weekStart,date->{weekStart=date;transitionDirection=1;renderHome();},this::renderHome);return;}
+        if(tab.equals("week")){if(UiStyle.neo(this))page.setPadding(page.getPaddingLeft(),page.getPaddingTop(),page.getPaddingRight(),Ui.dp(this,64));WeekPreview.show(this,page,weekStart,date->{weekStart=WeekOptions.first(this,date);transitionDirection=1;renderHome();},this::renderHome);if(UiStyle.neo(this))NeoHome.attachAI(this,page);return;}
         LocalDate today=LocalDate.now();LinearLayout hero=Ui.padded(this);
         TextView date=Ui.text(this,today.format(DateTimeFormatter.ofPattern("M月d日 EEEE",Locale.CHINA)),27,true);
         hero.addView(date);
@@ -205,7 +205,9 @@ public final class MainActivity extends AppCompatActivity {
     }
     void changeUiStyle(String style){if(!app.planaloud.ui.DisplayTrial.begin(this,prefs.getInt("ui_scale",100),prefs.getInt("font_scale",100),style)){message("界面风格未改变");return;}tab="agenda";weekPreview=false;moreFeaturesTab=null;screenName="";recreate();}
     void neoViewChanged(){home();}
-    void showWeek(LocalDate start){weekStart=start;weekPreview=true;tab="week";transitionDirection=1;renderHome();}
+    void weekOptionsChanged(LocalDate anchor){weekStart=WeekOptions.first(this,anchor);home();}
+    void moveDisplayedWeek(LocalDate date){weekStart=WeekOptions.first(this,date);home();}
+    void showWeek(LocalDate start){weekStart=WeekOptions.first(this,start);weekPreview=true;tab="week";transitionDirection=1;renderHome();}
     void openPage(String name){tab=name;weekPreview=false;renderHome();}
     void exportAllNotes(){startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/zip").putExtra(Intent.EXTRA_TITLE,"DayFlow-notes-"+LocalDate.now()+".zip"),109);}
     public void tasks(){taskBoard(0);}
@@ -303,7 +305,7 @@ public final class MainActivity extends AppCompatActivity {
     private void addRecord(LinearLayout parent,JSONObject r){MaterialCardView card=Ui.card(this);Ui.priority(card,r);card.addView(recordContents(r));card.setOnClickListener(v->detail(r));parent.addView(card);}
     public void editBasic(JSONObject r){editorState=null;noteState=new NoteEditor(this,r,false);}
     public void edit(JSONObject r){if(r.optBoolean("_dayflow_preview")){try{edit(Data.get(this).expanded(r));}catch(Exception e){message(e.getMessage());}return;}if("note".equals(r.optString("kind"))){editorState=null;noteState=new NoteEditor(this,r);}else{noteState=null;editorState=new EditorPanel(this,r);}}
-    public void detail(JSONObject r){if(r.optBoolean("_dayflow_preview")){try{detail(Data.get(this).expanded(r));}catch(Exception e){message(e.getMessage());}return;}editorState=null;noteState=null;if("note".equals(r.optString("kind"))){notePreview(r);return;}LinearLayout form=fullPage(r.optString("kind").equals("inbox")?"待确认通知":"事项详情",this::home);form.addView(Ui.text(this,r.optString("title"),26,true));form.addView(Ui.help(this,PlanTime.label(r)+" · "+TaskTypes.label(this,r.optString("type_id"))+(PlanTime.cancelled(r)?" · 已取消":"")));String countdown=PlanTime.countdown(r,LocalDateTime.now());if(!countdown.isEmpty())form.addView(Ui.help(this,countdown));String planning=PlanTime.planning(r);if(!planning.isEmpty())form.addView(Ui.help(this,planning));if(Recurrences.series(r))form.addView(Ui.help(this,"这是重复系列，编辑会影响尚未单独修改的各次安排。"));String date=r.optString("start_at");form.addView(Ui.help(this,date.isEmpty()?r.optString("time_hint","时间待定"):date.replace("T"," ")+(!r.optString("end_at").isEmpty()?" → "+r.optString("end_at").replace("T"," "):"")));if(!r.optString("location").isEmpty())form.addView(Ui.button(this,r.optString("location")+" · 高德地图",false,()->MapLinks.open(this,r.optString("location"))));
+    public void detail(JSONObject r){if(UiStyle.neo(this)){WeekActions.open(this,r);return;}if(r.optBoolean("_dayflow_preview")){try{detail(Data.get(this).expanded(r));}catch(Exception e){message(e.getMessage());}return;}editorState=null;noteState=null;if("note".equals(r.optString("kind"))){notePreview(r);return;}LinearLayout form=fullPage(r.optString("kind").equals("inbox")?"待确认通知":"事项详情",this::home);form.addView(Ui.text(this,r.optString("title"),26,true));form.addView(Ui.help(this,PlanTime.label(r)+" · "+TaskTypes.label(this,r.optString("type_id"))+(PlanTime.cancelled(r)?" · 已取消":"")));String countdown=PlanTime.countdown(r,LocalDateTime.now());if(!countdown.isEmpty())form.addView(Ui.help(this,countdown));String planning=PlanTime.planning(r);if(!planning.isEmpty())form.addView(Ui.help(this,planning));if(Recurrences.series(r))form.addView(Ui.help(this,"这是重复系列，编辑会影响尚未单独修改的各次安排。"));String date=r.optString("start_at");form.addView(Ui.help(this,date.isEmpty()?r.optString("time_hint","时间待定"):date.replace("T"," ")+(!r.optString("end_at").isEmpty()?" → "+r.optString("end_at").replace("T"," "):"")));if(!r.optString("location").isEmpty())form.addView(Ui.button(this,r.optString("location")+" · 高德地图",false,()->MapLinks.open(this,r.optString("location"))));
         addRecordImage(form,r);
         TextView body=Ui.text(this,r.optString("content"),16,false);
         body.setTextIsSelectable(true);body.setPadding(0,Ui.dp(this,16),0,Ui.dp(this,16));form.addView(body);
@@ -377,7 +379,7 @@ public final class MainActivity extends AppCompatActivity {
     private String swipeDestination(boolean forward){return HomeNavigation.adjacent(visibleNavigationMask(),tab,forward);}
     private void swipePage(boolean forward){
         String next=swipeDestination(forward);if(next==null)return;
-        weekPreview=next.equals("week");if(weekPreview)weekStart=LocalDate.now();
+        weekPreview=next.equals("week");if(weekPreview)weekStart=WeekOptions.first(this,LocalDate.now());
         tab=next;transitionDirection=forward?1:-1;renderHome();
     }
     private boolean swipeStartAllowed(MotionEvent event){

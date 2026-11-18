@@ -24,7 +24,7 @@ final class DayTimeline extends View {
     void setExpanded(boolean value){expanded=value;start=0;previous.clear();requestLayout();invalidate();}
     private java.util.List<DayEvents.Segment> annotations(){return expanded?events:DayEvents.at(events,clock.get());}
 
-    private float dp(float value){return Ui.dp(getContext(),value);}
+    private float dp(float value){return value*getResources().getDisplayMetrics().density;}
     private float sp(float value){return android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP,value,getResources().getDisplayMetrics());}
     private float rowHeight(){paint.setTextSize(sp(12));return Math.max(dp(24),paint.getFontMetrics().bottom-paint.getFontMetrics().top+dp(12));}
     private TimelineCallouts.Layout plan(float width,int index){paint.setTextSize(sp(12));paint.setTypeface(Typeface.DEFAULT);return TimelineCallouts.layout(annotations(),index,width,paint,dp(8),dp(6),dp(132));}
@@ -32,10 +32,10 @@ final class DayTimeline extends View {
     java.util.List<String> visibleNames(){java.util.List<String> names=new ArrayList<>();for(TimelineCallouts.Label label:plan(getWidth(),start).labels)names.add(label.event.title);return names;}
     private boolean multiple(float width){return start>0||plan(width,0).next<annotations().size();}
     private float clockBottom(){paint.setTextSize(sp(12));return Math.max(dp(20),-paint.ascent()+paint.descent()+dp(6));}
-    @Override protected void onMeasure(int w,int h){int width=MeasureSpec.getSize(w);TimelineCallouts.Layout layout=plan(width,start);float row=rowHeight();int above=multiple(width)?2:layout.above,below=multiple(width)?2:layout.below;float chart=dp(Math.max(4,DayEvents.lanes(events)*2.5f));int wanted=Math.round(Math.max(dp(64),clockBottom()+above*row+dp(6)+chart+below*row+sp(10)+dp(24)));setMeasuredDimension(resolveSize(width,w),resolveSize(wanted,h));}
+    @Override protected void onMeasure(int w,int h){int width=MeasureSpec.getSize(w);TimelineCallouts.Layout layout=plan(width,start);float row=rowHeight();int above=multiple(width)?2:layout.above,below=multiple(width)?2:layout.below;float chart=DayEvents.tracks(events,dp(3.125f),dp(2)).height;int wanted=Math.round(Math.max(dp(64),clockBottom()+above*row+dp(6)+chart+below*row+sp(10)+dp(24)));setMeasuredDimension(resolveSize(width,w),resolveSize(wanted,h));}
     private int nameColor(int color){int background=androidx.core.graphics.ColorUtils.setAlphaComponent(Ui.surface(getContext()),255);return androidx.core.graphics.ColorUtils.calculateContrast(color,background)>=4.5?color:androidx.core.graphics.ColorUtils.blendARGB(color,Ui.ink(getContext()),.5f);}
     @Override protected void onDraw(Canvas canvas){
-        super.onDraw(canvas);LocalTime now=clock.get();TimelineCallouts.Layout layout=plan(getWidth(),start);float pad=dp(8),width=Math.max(1,getWidth()-2*pad),row=rowHeight(),chart=dp(Math.max(4,DayEvents.lanes(events)*2.5f));int above=multiple(getWidth())?2:layout.above,below=multiple(getWidth())?2:layout.below;float line=clockBottom()+above*row+dp(6);
+        super.onDraw(canvas);LocalTime now=clock.get();TimelineCallouts.Layout layout=plan(getWidth(),start);float pad=dp(8),width=Math.max(1,getWidth()-2*pad),row=rowHeight(),chart=DayEvents.tracks(events,dp(3.125f),dp(2)).height;int above=multiple(getWidth())?2:layout.above,below=multiple(getWidth())?2:layout.below;float line=clockBottom()+above*row+dp(6);DayEvents.Tracks tracks=DayEvents.tracks(events,dp(3.125f),dp(2));float mainTop=line+tracks.top;
         setContentDescription(DayTime.label(now)+(expanded?"，已展开全部事件标注，点击折叠":"，已折叠，仅标注当前时间段事件，点击展开")+"，长按查看完整详情"+(multiple(getWidth())?"，上下滑动可切换更多标注":""));
         paint.setTextAlign(Paint.Align.LEFT);paint.setTextSize(sp(12));paint.setColor(Ui.muted(getContext()));canvas.drawText(TextUtils.ellipsize(DayTime.label(now),paint,Math.max(1,width-dp(24)),TextUtils.TruncateAt.END).toString(),pad,Math.max(dp(15),-paint.ascent()),paint);float cx=getWidth()-pad-dp(6),cy=clockBottom()/2;paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(1.5f));Path arrow=new Path();arrow.moveTo(cx-dp(2.5f),cy+(expanded?dp(2):-dp(2)));arrow.lineTo(cx,cy+(expanded?-dp(2):dp(2)));arrow.lineTo(cx+dp(2.5f),cy+(expanded?dp(2):-dp(2)));canvas.drawPath(arrow,paint);paint.setStyle(Paint.Style.FILL);
         // Leaders are drawn first; labels never cross each other in the same row.
@@ -43,10 +43,10 @@ final class DayTimeline extends View {
             float y=label.side<0?line-dp(12)-label.row*row:line+chart+dp(12)+label.row*row;
             float elbow=label.anchor<label.left?label.left:label.anchor>label.right?label.right:label.left;
             paint.setColor(nameColor(label.event.color));paint.setAlpha(180);paint.setStrokeWidth(Math.max(1,dp(1)));
-            canvas.drawLine(label.anchor,line+label.event.lane*dp(2.5f)+dp(1),elbow,y,paint);canvas.drawLine(label.left,y,label.right,y,paint);
+            canvas.drawLine(label.anchor,line+tracks.y(label.event)+tracks.thickness(label.event)/2,elbow,y,paint);canvas.drawLine(label.left,y,label.right,y,paint);
         }
-        paint.setAlpha(255);paint.setColor(LiquidGlass.tint(Ui.muted(getContext()),42));canvas.drawRoundRect(pad,line,pad+width,line+dp(2.5f),dp(2),dp(2),paint);
-        float marker=pad+width*DayTime.minute(now)/DayTime.MINUTES;paint.setColor(Ui.primary(getContext()));canvas.drawRoundRect(pad,line,marker,line+dp(2.5f),dp(2),dp(2),paint);DayEvents.draw(canvas,paint,events,pad,line,width,dp(2.5f),Ui.ink(getContext()));paint.setColor(Ui.primary(getContext()));paint.setStrokeWidth(dp(2));canvas.drawLine(marker,line-dp(3),marker,line+chart+dp(2),paint);canvas.drawCircle(marker,line-dp(3),dp(3),paint);
+        paint.setAlpha(255);paint.setColor(LiquidGlass.tint(Ui.muted(getContext()),42));canvas.drawRoundRect(pad,mainTop,pad+width,mainTop+tracks.main,tracks.main/2,tracks.main/2,paint);
+        float marker=pad+width*DayTime.minute(now)/DayTime.MINUTES;paint.setColor(Ui.primary(getContext()));canvas.drawRoundRect(pad,mainTop,marker,mainTop+tracks.main,tracks.main/2,tracks.main/2,paint);DayEvents.draw(canvas,paint,events,pad,line,width,tracks,Ui.ink(getContext()));paint.setColor(Ui.primary(getContext()));paint.setStrokeWidth(dp(2));canvas.drawLine(marker,mainTop-dp(3),marker,mainTop+tracks.main+dp(2),paint);canvas.drawCircle(marker,mainTop-dp(3),dp(3),paint);
         paint.setTextSize(sp(12));for(TimelineCallouts.Label label:layout.labels){float y=label.side<0?line-dp(12)-label.row*row:line+chart+dp(12)+label.row*row;paint.setColor(nameColor(label.event.color));float baseline=label.side<0?y-dp(3):y-paint.ascent()+dp(3);canvas.drawText(label.text,label.left+dp(2),baseline,paint);}
         paint.setColor(Ui.muted(getContext()));paint.setTextSize(sp(10));float axis=line+chart+below*row+dp(17);for(int i=0;i<5;i++){paint.setTextAlign(i==0?Paint.Align.LEFT:i==4?Paint.Align.RIGHT:Paint.Align.CENTER);canvas.drawText(new String[]{"00","06","12","18","24"}[i],pad+width*i/4,axis,paint);}
     }

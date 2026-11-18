@@ -15,11 +15,13 @@ final class HomeLayout {
             toggle.setOnCheckedChangeListener((button,on)->{a.prefs.edit().putBoolean(key,on).apply();a.refreshNavigation();});
         }
         Spinner columns=TaskTypes.spinner(a,page,"内容卡片列数",Arrays.asList("自动适配","1 列","2 列","3 列","4 列"));
-        columns.setSelection(Math.max(0,Math.min(4,a.prefs.getInt("home_columns",0))));
+        columns.setSelection(Math.max(0,Math.min(4,a.prefs.getInt("home_columns",1))));
         columns.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
             public void onItemSelected(AdapterView<?> parent,android.view.View view,int position,long id){a.prefs.edit().putInt("home_columns",position).apply();}
             public void onNothingSelected(AdapterView<?> parent){}
         });
+        Spinner rowCount=TaskTypes.spinner(a,page,"每组首批显示行数",Arrays.asList("自动","1 行","2 行","3 行","4 行","5 行","6 行","7 行","8 行"));rowCount.setSelection(Math.max(0,Math.min(8,a.prefs.getInt("home_rows",0))));rowCount.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,android.view.View v,int i,long id){a.prefs.edit().putInt("home_rows",i).apply();}public void onNothingSelected(AdapterView<?> p){}});
+        page.addView(Ui.help(a,"首批行数用于今天各组待办，更多内容可继续展开。"));
         page.addView(Ui.help(a,"列数应用于今天待办、笔记、收集箱和更多功能中的卡片。"));
     }
 }

@@ -44,7 +44,7 @@ public final class AgendaWidget extends AppWidgetProvider {
         JSONObject notice=null;int count=0;try{if(prefs(c).getBoolean("widget_inbox",true)){count=Data.get(c).inboxCount();notice=Data.get(c).list("inbox",1).optJSONObject(0);}}catch(Exception ignored){}
         for(int id:ids){
             try{
-                boolean grid="grid".equals(prefs(c).getString("widget_layout","grid"))&&manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)>=205;
+                boolean grid="grid".equals(prefs(c).getString("widget_layout","list"))&&manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)>=205;
                 int container=grid?R.id.widget_grid:R.id.widget_list;
                 RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);
                 v.setInt(R.id.widget_root,"setBackgroundResource",background==null?(dark?R.drawable.widget_solid_dark:R.drawable.widget_solid):android.R.color.transparent);
@@ -58,7 +58,7 @@ public final class AgendaWidget extends AppWidgetProvider {
                 v.setTextViewText(R.id.widget_weather,weather.isEmpty()?"今日待办 · 上下滑动":weather);v.setTextColor(R.id.widget_weather,muted);
                 java.time.LocalTime clock=java.time.LocalTime.now();
                 v.setTextViewText(R.id.widget_day_progress_label,"今日已过 "+DayTime.percent(clock)+"%");v.setTextColor(R.id.widget_day_progress_label,muted);v.setTextColor(R.id.widget_clock,muted);
-                v.setImageViewBitmap(R.id.widget_event_timeline,DayEvents.widget(c,today));
+                v.setImageViewBitmap(R.id.widget_event_timeline,DayEvents.widget(c,today,manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)));
                 v.setOnClickPendingIntent(R.id.widget_timeline,open(c,null,false));
                 v.setTextColor(R.id.widget_empty,muted);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_inbox,ink);
                 v.setViewVisibility(R.id.widget_inbox,notice==null?View.GONE:View.VISIBLE);if(notice!=null){v.setTextViewText(R.id.widget_inbox,"收集箱 "+count+" 条 · "+notice.optString("title"));v.setOnClickPendingIntent(R.id.widget_inbox,open(c,notice,false));}

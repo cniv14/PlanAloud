@@ -30,6 +30,7 @@ final class CommandScreen {
         route("sync","同步与备份设置",a->new SettingsPanels(a).sync());route("account","同步账号与地址",a->new SettingsPanels(a).account());route("taskflow","连接 TaskFlow Windows",TaskFlowSettings::show);route("sync-conflicts","同步冲突",a->SyncConflicts.show(a,0));
         route("undo","撤销与误删恢复",UndoHistory::show);route("extensions","内嵌模块与存储",ExtensionHub::show);route("web-import","网页与日历导入",WebImports::show);route("updates","统一更新",UpdateCenter::show);route("licenses","开源许可",a->new SettingsPanels(a).licenses());route("permissions","提醒与精确闹钟权限",AlarmSound::permissions);
         route("voice","AI 设置 · 语音识别",VoiceOptions::show);
+        route("card-appearance","卡片质感",CardAppearance::show);
         route("manual","完整功能说明",FeatureGuide::show);route("ui-style","界面风格",UiStyle::show);route("display","界面与字体大小",DisplaySettings::show);
         route("guide","使用引导",Onboarding::show);route("diagnostics","诊断与导出日志",Diagnostics::show);route("settings","设置",a->a.openPage("settings"));route("commands","更多功能",CommandScreen::show);
     }

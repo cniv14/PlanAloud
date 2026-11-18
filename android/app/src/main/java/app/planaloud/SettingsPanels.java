@@ -30,12 +30,12 @@ public final class SettingsPanels {
         Ui.cell(a,first,Ui.tile(a,"同步","备份、云端、局域网",this::sync));
         Ui.cell(a,second,Ui.tile(a,"AI 模型","厂商与模型",this::api));
         Ui.cell(a,second,Ui.tile(a,"更新","本体与内嵌模块",this::updates));
-        form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
-        form.addView(Ui.button(a,"使用引导",false,()->Onboarding.show(a)));
+        if(!UiStyle.neo(a))form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
+        form.addView(Ui.button(a,UiStyle.neo(a)?"完整功能说明":"使用引导",false,()->{if(UiStyle.neo(a))FeatureGuide.show(a);else Onboarding.show(a);}));
         form.addView(Ui.button(a,"诊断与导出日志",false,()->Diagnostics.show(a)));
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);
-        form.addView(Ui.tile(a,"主界面栏目与列数","自定义栏目，笔记和收集箱默认隐藏",()->HomeLayout.show(a)));
+        if(!UiStyle.neo(a))form.addView(Ui.tile(a,"主界面栏目与列数","自定义栏目，笔记和收集箱默认隐藏",()->HomeLayout.show(a)));
         form.addView(Ui.tile(a,"界面风格",UiStyle.description(a),()->UiStyle.show(a)));
         form.addView(Ui.tile(a,"界面与字体大小","分别调整界面缩放和字体大小",()->DisplaySettings.show(a)));
         Spinner floatingMask=TaskTypes.spinner(a,form,"悬浮窗透明遮罩",Arrays.asList("应用主题色（默认）","中性色"));
@@ -49,13 +49,14 @@ public final class SettingsPanels {
         toggle(form,"减少序言动效","保留布局，关闭主要过渡与壁纸切换动画。",p.getBoolean("reduce_motion",false),on->p.edit().putBoolean("reduce_motion",on).apply());
         toggle(form,"紧凑列表与表格","减少卡片和表格留白，操作区域仍至少48dp。",p.getBoolean("compact_ui",false),on->{p.edit().putBoolean("compact_ui",on).apply();a.recreate();});
         AppearanceTiles.add(a,form);
+        form.addView(Ui.tile(a,"卡片质感","无、哑光、玻璃、流光 · 默认无",()->CardAppearance.show(a)));
         ThemeColors.settings(a,form);
         toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();}});form.addView(slider);
     }
     void widget(Runnable back){
         LinearLayout page=a.fullPage("桌面小组件",back);page.addView(Ui.text(a,"桌面小组件",24,true));
         page.addView(Ui.help(a,"两种小组件都只显示标题、时间和地点，不展示正文与备注。近期日程支持单列／两列，窄尺寸自动使用单列。"));
-        Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","grid"))?1:0);
+        Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","list"))?1:0);
         List<String> modes=Arrays.asList("glass","solid","image","wallpaper");Spinner style=TaskTypes.spinner(a,page,"背景样式",Arrays.asList("液态玻璃","主题实色","自选图片 + 玻璃","跟随应用壁纸 + 玻璃"));style.setSelection(Math.max(0,modes.indexOf(p.getString("widget_background","glass"))));
         TextInputEditText tint=Ui.field(a,page,"玻璃底层遮罩 · 48–94%",Integer.toString(p.getInt("widget_tint",73)),false);tint.setInputType(InputType.TYPE_CLASS_NUMBER);
         LinearLayout pair=Ui.row(a);page.addView(pair);

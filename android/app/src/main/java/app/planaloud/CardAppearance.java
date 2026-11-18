@@ -1,0 +1,7 @@
+package app.planaloud;
+import android.widget.*;
+import java.util.*;
+import org.json.JSONObject;
+final class CardAppearance {
+    static void show(MainActivity a){LinearLayout page=a.fullPage("卡片质感",()->new SettingsPanels(a).appearance());page.addView(Ui.text(a,"卡片质感",22,true));page.addView(Ui.help(a,"默认无质感。这里单独配置事件卡片的表面效果，不随主题或 UI 风格自动开启；单个事件可在编辑页覆盖全局设置。流光在减少动效时静止，桌面组件使用静态效果。"));Spinner choice=TaskTypes.spinner(a,page,"表面效果",Arrays.asList(CardFinish.LABELS));choice.setSelection(Math.max(0,Arrays.asList(CardFinish.VALUES).indexOf(a.prefs.getString("card_texture","none"))));TextView preview=Ui.text(a,"今日安排\n09:00–10:00 · 图书馆",16,true);preview.setPadding(Ui.dp(a,18),Ui.dp(a,18),Ui.dp(a,18),Ui.dp(a,18));page.addView(preview,new LinearLayout.LayoutParams(-1,Ui.dp(a,112)));JSONObject sample=new JSONObject();try{sample.put("kind","event").put("title","卡片预览");}catch(Exception ignored){}choice.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,android.view.View v,int i,long id){try{sample.put("card_texture",CardFinish.VALUES[i]);preview.setBackground(EventColors.shape(a,sample,16));}catch(Exception ignored){}}public void onNothingSelected(AdapterView<?> p){}});page.addView(Ui.button(a,"保存卡片质感",true,()->{a.prefs.edit().putString("card_texture",CardFinish.VALUES[choice.getSelectedItemPosition()]).apply();AgendaWidget.refresh(a);a.message("已保存卡片质感");}));}
+}

@@ -48,7 +48,7 @@ public final class DailyTasks {
     }
     private static void append(MainActivity a,LinearLayout target,List<JSONObject> rows,int offset,LocalDate day,Runnable refresh,boolean due){
         int columns=Ui.columns(a);
-        int end=Math.min(rows.size(),offset+8);LinearLayout line=null;
+        int visibleRows=a.prefs.getInt("home_rows",0),batch=visibleRows>0?Math.max(1,Math.min(8,visibleRows))*columns:8;int end=Math.min(rows.size(),offset+batch);LinearLayout line=null;
         for(int i=offset;i<end;i++){
             if((i-offset)%columns==0){line=Ui.row(a);line.setGravity(android.view.Gravity.TOP);target.addView(line);}
             JSONObject r=rows.get(i);String label=PlanTime.taskLabel(r,day,due,LocalDateTime.now());

@@ -22,16 +22,7 @@ public final class AgendaCollection extends RemoteViewsService {
             JSONObject r=rows.optJSONObject(n);if(r==null)return null;boolean dark=AgendaWidget.dark(c);
             RemoteViews v=new RemoteViews(c.getPackageName(),detailed?R.layout.widget_item_detailed:R.layout.widget_item);
             java.time.LocalDateTime now=java.time.LocalDateTime.now();
-            int shade;
-            switch(PlanTime.priority(r,now)){
-                case "near": shade=dark?R.drawable.widget_priority_high_dark:R.drawable.widget_priority_high; break;
-                case "high": shade=dark?R.drawable.widget_priority_important_dark:R.drawable.widget_priority_important; break;
-                case "urgent": shade=dark?R.drawable.widget_priority_normal_dark:R.drawable.widget_priority_normal; break;
-                case "normal": shade=dark?R.drawable.widget_priority_low_dark:R.drawable.widget_priority_low; break;
-                case "low": shade=dark?R.drawable.widget_priority_relaxed_dark:R.drawable.widget_priority_relaxed; break;
-                default: shade=dark?R.drawable.widget_glass_dark:R.drawable.widget_glass;
-            }
-            v.setInt(R.id.widget_item,"setBackgroundResource",shade);
+            v.setImageViewBitmap(R.id.widget_item_background,EventColors.widget(c,r,false));
             v.setTextViewText(R.id.widget_item_title,r.optString("title"));
             String meta=DayAgenda.meta(r,now.toLocalDate());
             v.setTextViewText(R.id.widget_item_meta,meta);
