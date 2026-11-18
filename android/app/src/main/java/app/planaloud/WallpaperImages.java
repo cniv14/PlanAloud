@@ -13,8 +13,26 @@ final class WallpaperImages {
         try(InputStream in=source.open()){BitmapFactory.decodeStream(in,null,bounds);}
         if(bounds.outWidth<=0||bounds.outHeight<=0)throw new IOException("无法读取图片");
         BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=1;while(Math.max(bounds.outWidth,bounds.outHeight)/options.inSampleSize>limit)options.inSampleSize*=2;
-        try(InputStream in=source.open()){Bitmap image=BitmapFactory.decodeStream(in,null,options);if(image==null)throw new IOException("无法读取图片");return image;}
+        Bitmap image;try(InputStream in=source.open()){image=BitmapFactory.decodeStream(in,null,options);if(image==null)throw new IOException("无法读取图片");}
+        try(InputStream in=source.open()){
+            android.media.ExifInterface exif=new android.media.ExifInterface(in);
+            int orientation=exif.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,android.media.ExifInterface.ORIENTATION_NORMAL);
+            Matrix matrix=new Matrix();
+            switch(orientation){
+                case 2:matrix.setScale(-1,1);break;
+                case 3:matrix.setRotate(180);break;
+                case 4:matrix.setRotate(180);matrix.postScale(-1,1);break;
+                case 5:matrix.setRotate(90);matrix.postScale(-1,1);break;
+                case 6:matrix.setRotate(90);break;
+                case 7:matrix.setRotate(-90);matrix.postScale(-1,1);break;
+                case 8:matrix.setRotate(-90);break;
+                default:break;
+            }
+            if(!matrix.isIdentity()){Bitmap rotated=Bitmap.createBitmap(image,0,0,image.getWidth(),image.getHeight(),matrix,true);if(rotated!=image)image.recycle();image=rotated;}
+        }catch(IOException ignored){}
+        return image;
     }
+    static Bitmap decode(Context c,Uri uri,int limit)throws IOException{return decode(()->c.getContentResolver().openInputStream(uri),limit);}
     static Bitmap decode(File file,int limit){try{return decode(()->new FileInputStream(file),limit);}catch(IOException e){return null;}}
     static String add(Context c,File file,String name)throws Exception{Bitmap b=decode(()->new FileInputStream(file),1400);try{return WallpaperRules.add(c,name,b);}finally{b.recycle();}}
     static void importRule(Context c,Uri uri)throws Exception{

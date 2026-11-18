@@ -1,0 +1,19 @@
+package app.planaloud;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.view.*;
+import android.widget.*;
+import java.time.*;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+/** A quiet read-only week canvas; changes are delegated to AI or explicit commands. */
+final class NeoHome {
+    static void show(MainActivity a,LocalDate anchor){
+        LocalDate today=LocalDate.now();LinearLayout page=a.neoPage();page.setTag("neo-today");page.setPadding(Ui.dp(a,12),0,Ui.dp(a,12),Ui.dp(a,64));LinearLayout toolbar=Ui.row(a);page.addView(toolbar);TextView heading=Ui.text(a,today.format(java.time.format.DateTimeFormatter.ofPattern("M月d日 EEEE",java.util.Locale.CHINA)),22,true);toolbar.addView(heading,new LinearLayout.LayoutParams(0,Ui.dp(a,52),1));ImageButton menu=icon(a,toolbar,"显示与 AI 设置",R.drawable.ic_more,()->{},false);menu.setOnClickListener(v->menu(a,menu,today));ScrollView scroll=new ScrollView(a);LinearLayout body=Ui.column(a);scroll.addView(body);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));body.addView(new DayTimeline(a),new LinearLayout.LayoutParams(-1,-2));
+        try{org.json.JSONArray rows=Data.get(a).dayTasks(today);for(int i=0;i<rows.length();i++){org.json.JSONObject r=rows.getJSONObject(i);com.google.android.material.card.MaterialCardView card=Ui.card(a);Ui.priority(card,r);LinearLayout info=Ui.padded(a);TextView title=Ui.text(a,r.optString("title"),16,true);title.setText(WeekCompletion.title(r));title.setMaxLines(3);title.setEllipsize(android.text.TextUtils.TruncateAt.END);info.addView(title);info.addView(Ui.help(a,DayAgenda.meta(r,today)));card.addView(info);WeekActions.bind(a,card,r,a::home);body.addView(card);}if(rows.length()==0)body.addView(Ui.help(a,"今天还没有安排，告诉 AI 你想做什么。"));}catch(Exception error){Diagnostics.record(a,"neo-today",error);body.addView(Ui.help(a,"无法读取今天的安排，请重试。"));}attachAI(a,page);
+    }
+    static void attachAI(MainActivity a,LinearLayout page){FloatingActionButton ai=new FloatingActionButton(a);ai.setTag("neo-ai");ai.setImageResource(ProviderAppearance.current(a.prefs).icon);ai.setImageTintList(null);ai.setBackgroundTintList(ColorStateList.valueOf(Ui.color(a,com.google.android.material.R.attr.colorPrimaryContainer)));ai.setCustomSize(Ui.dp(a,52));ai.setShapeAppearanceModel(ai.getShapeAppearanceModel().toBuilder().setAllCornerSizes(Ui.dp(a,26)).build());ai.setContentDescription("问序言 AI，管理日程与笔记");ai.setTooltipText("问序言 AI");ai.setOnClickListener(v->AssistantPlugin.open(a));FrameLayout.LayoutParams at=new FrameLayout.LayoutParams(Ui.dp(a,52),Ui.dp(a,52),Gravity.END|Gravity.BOTTOM);at.setMargins(0,0,Ui.dp(a,12),Ui.dp(a,8));((FrameLayout)page.getParent()).addView(ai,at);}
+    private static ImageButton icon(MainActivity a,LinearLayout row,String label,int drawable,Runnable action,boolean reverse){ImageButton b=new ImageButton(a);b.setImageResource(drawable);b.setImageTintList(ColorStateList.valueOf(Ui.primary(a)));b.setBackgroundColor(Color.TRANSPARENT);if(reverse)b.setRotation(180);b.setContentDescription(label);b.setTooltipText(label);b.setOnClickListener(v->action.run());row.addView(b,new LinearLayout.LayoutParams(Ui.dp(a,44),Ui.dp(a,48)));return b;}
+    static void returnBar(MainActivity a,LinearLayout page){LinearLayout row=Ui.row(a);icon(a,row,"返回 Neo",R.drawable.ic_back,()->a.openPage("agenda"),false);page.addView(row);}
+    private static void menu(MainActivity a,View anchor,LocalDate first){PopupMenu menu=new PopupMenu(a,anchor);String[] names={"AI 设置","外观与风格","卡片质感","使用引导","完整功能说明"};for(int i=0;i<names.length;i++)menu.getMenu().add(0,i,i,names[i]);menu.setOnMenuItemClickListener(i->{switch(i.getItemId()){case 0:AiSettings.show(a);break;case 1:new SettingsPanels(a).appearance();break;case 2:CardAppearance.show(a);break;case 3:Onboarding.show(a);break;default:FeatureGuide.show(a);}return true;});menu.show();}
+}

@@ -4,13 +4,12 @@ def keyConfig = keyConfigFile.exists() ? new groovy.json.JsonSlurper().parse(key
 android {
     namespace 'app.planaloud'
     compileSdk 36
-    packaging { jniLibs { excludes += ["**/libplanaloud_asr.so"] } }
     defaultConfig {
         applicationId 'app.planaloud'
         minSdk 26
         targetSdk 36
-        versionCode 150
-        versionName '1.5.0'
+        versionCode 159
+        versionName '1.5.9'
         testInstrumentationRunner 'app.planaloud.SmokeTest'
     }
     compileOptions {
@@ -33,13 +32,15 @@ android {
         }
     }
     buildTypes {
+        debug { versionNameSuffix "-debug" }
         release {
-            signingConfig signingConfigs.release
+            signingConfig = (keyConfig != null || System.getenv("DAYFLOW_KEYSTORE")) ? signingConfigs.release : null
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    testOptions { unitTests.includeAndroidResources = true }
     sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/thirdPartyAssets').get().asFile)
 }
 tasks.register('generateThirdPartyNotices', Copy) {
@@ -48,6 +49,10 @@ tasks.register('generateThirdPartyNotices', Copy) {
 }
 tasks.named('preBuild').configure { dependsOn 'generateThirdPartyNotices' }
 dependencies {
+ implementation project(':uiScale');
+
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.robolectric:robolectric:4.16.1"
     implementation project(':assistantPlugin')
     implementation project(':voicePlugin')
     implementation project(':markdownPlugin')
@@ -76,3 +81,12 @@ tasks.register('exportModuleClasspath') {
         output.text = configurations.releaseRuntimeClasspath.incoming.artifactView { attributes { attribute(org.gradle.api.attributes.Attribute.of("artifactType", String), "android-classes-jar") } }.files.files.collect { it.absolutePath }.join('\n')
     }
 }
+
+// One source of truth for both repository readers and the in-app AI help tool.
+tasks.register('generateFeatureGuide', Copy) {
+    from rootProject.file('../docs/功能说明.md')
+    rename { 'features.md' }
+    into layout.buildDirectory.dir('generated/featureGuideAssets/help')
+}
+android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/featureGuideAssets').get().asFile)
+tasks.named('preBuild').configure { dependsOn 'generateFeatureGuide' }

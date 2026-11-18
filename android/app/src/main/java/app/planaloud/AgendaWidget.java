@@ -16,13 +16,14 @@ import java.util.Locale;
 import org.json.*;
 
 public final class AgendaWidget extends AppWidgetProvider {
-    private static final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static final String PROGRESS="app.planaloud.WIDGET_DAY_PROGRESS";
+    static final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private static final java.util.concurrent.atomic.AtomicBoolean queued=new java.util.concurrent.atomic.AtomicBoolean();
     static android.content.SharedPreferences prefs(Context c){return c.getSharedPreferences("settings",0);}
     static boolean dark(Context c){String value=prefs(c).getString("theme","system");return value.equals("dark")||value.equals("system")&&(c.getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;}
     public static void refresh(Context context){
         Context c=context.getApplicationContext();if(!queued.compareAndSet(false,true))return;
-        worker.execute(()->{queued.set(false);AppWidgetManager m=AppWidgetManager.getInstance(c);update(c,m,m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)));});
+        worker.execute(()->{queued.set(false);AppWidgetManager m=AppWidgetManager.getInstance(c);update(c,m,m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)));TwoDayWidget.update(c,m,m.getAppWidgetIds(new ComponentName(c,TwoDayWidget.class)));schedule(c,m);});
     }
     private static PendingIntent open(Context c,JSONObject r,boolean quick){
         String id=r==null?"":r.optString("id");Intent i=new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -30,8 +31,11 @@ public final class AgendaWidget extends AppWidgetProvider {
         if(quick)i.putExtra("quick",true).putExtra("quick_kind","task");i.setData(Uri.parse("planaloud://widget/"+(quick?"new":id.isEmpty()?"home":id)));
         return PendingIntent.getActivity(c,0,i,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
     }
+    @Override public void onReceive(Context c,Intent intent){if(PROGRESS.equals(intent.getAction())||Intent.ACTION_DATE_CHANGED.equals(intent.getAction())||Intent.ACTION_TIME_CHANGED.equals(intent.getAction())||Intent.ACTION_TIMEZONE_CHANGED.equals(intent.getAction())){refresh(c);return;}super.onReceive(c,intent);}
+    private static PendingIntent progressIntent(Context c){return PendingIntent.getBroadcast(c,531,new Intent(c,AgendaWidget.class).setAction(PROGRESS),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
+    @Override public void onDisabled(Context c){schedule(c,AppWidgetManager.getInstance(c));super.onDisabled(c);}
     public void onAppWidgetOptionsChanged(Context c,AppWidgetManager m,int id,Bundle options){onUpdate(c,m,new int[]{id});}
-    public void onUpdate(Context c,AppWidgetManager m,int[] ids){PendingResult pending=goAsync();worker.execute(()->{try{update(c,m,ids);}finally{if(pending!=null)pending.finish();}});}
+    public void onUpdate(Context c,AppWidgetManager m,int[] ids){PendingResult pending=goAsync();worker.execute(()->{try{update(c,m,ids);schedule(c,m);}finally{if(pending!=null)pending.finish();}});}
     private static void update(Context c,AppWidgetManager manager,int[] ids){
         if(ids.length==0)return;boolean dark=dark(c);int ink=dark?0xffedf3f8:0xff1f2830,muted=dark?0xffc5d3de:0xff465765,accent=ThemeColors.accent(c,dark);LocalDate today=LocalDate.now();
         String style=prefs(c).getString("widget_background","glass");
@@ -40,25 +44,26 @@ public final class AgendaWidget extends AppWidgetProvider {
         JSONObject notice=null;int count=0;try{if(prefs(c).getBoolean("widget_inbox",true)){count=Data.get(c).inboxCount();notice=Data.get(c).list("inbox",1).optJSONObject(0);}}catch(Exception ignored){}
         for(int id:ids){
             try{
-                boolean grid="grid".equals(prefs(c).getString("widget_layout","grid"))&&manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)>=205;
+                boolean grid="grid".equals(prefs(c).getString("widget_layout","list"))&&manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)>=205;
                 int container=grid?R.id.widget_grid:R.id.widget_list;
-                RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);
+                RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget_agenda);
                 v.setInt(R.id.widget_root,"setBackgroundResource",background==null?(dark?R.drawable.widget_solid_dark:R.drawable.widget_solid):android.R.color.transparent);
-                v.setViewVisibility(R.id.widget_background_image,background==null?View.GONE:View.VISIBLE);if(background!=null)v.setImageViewBitmap(R.id.widget_background_image,background);
+                v.setViewVisibility(R.id.widget_background_image,background==null?View.GONE:View.VISIBLE);if(background!=null)WidgetImages.set(v,R.id.widget_background_image,background);
                 v.setViewVisibility(R.id.widget_list,grid?View.GONE:View.VISIBLE);v.setViewVisibility(R.id.widget_grid,grid?View.VISIBLE:View.GONE);
-                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/"+(grid?"grid":"list")));
+                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/animated-styles4/"+(grid?"grid":"list")));
                 v.setRemoteAdapter(container,adapter);v.setEmptyView(container,R.id.widget_empty);
-                Intent tap=new Intent(c,WidgetActionActivity.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                v.setPendingIntentTemplate(container,PendingIntent.getActivity(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
+                Intent tap=new Intent(c,WidgetActions.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                v.setPendingIntentTemplate(container,PendingIntent.getBroadcast(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
                 v.setTextViewText(R.id.widget_date,today.format(DateTimeFormatter.ofPattern("M月d日 EEE",Locale.CHINA)));v.setTextColor(R.id.widget_date,ink);
                 v.setTextViewText(R.id.widget_weather,weather.isEmpty()?"今日待办 · 上下滑动":weather);v.setTextColor(R.id.widget_weather,muted);
                 v.setTextColor(R.id.widget_empty,muted);v.setTextColor(R.id.widget_add,accent);v.setTextColor(R.id.widget_inbox,ink);
                 v.setViewVisibility(R.id.widget_inbox,notice==null?View.GONE:View.VISIBLE);if(notice!=null){v.setTextViewText(R.id.widget_inbox,"收集箱 "+count+" 条 · "+notice.optString("title"));v.setOnClickPendingIntent(R.id.widget_inbox,open(c,notice,false));}
                 v.setOnClickPendingIntent(R.id.widget_add,open(c,null,true));v.setOnClickPendingIntent(R.id.widget_header,open(c,null,false));v.setOnClickPendingIntent(R.id.widget_empty,open(c,null,true));
                 manager.updateAppWidget(id,v);manager.notifyAppWidgetViewDataChanged(id,container);
-            }catch(RuntimeException ignored){}
+            }catch(RuntimeException error){Diagnostics.record(c,"agenda-widget",error);}
         }
     }
+    static void schedule(Context c,AppWidgetManager m){AlarmManager alarms=c.getSystemService(AlarmManager.class);if(m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)).length+m.getAppWidgetIds(new ComponentName(c,TwoDayWidget.class)).length==0)alarms.cancel(progressIntent(c));else alarms.set(AlarmManager.ELAPSED_REALTIME,android.os.SystemClock.elapsedRealtime()+15*60000L,progressIntent(c));}
     private static Bitmap glassBackground(Context c,String style,boolean dark,int accent){
         File file=style.equals("image")?WallpaperImages.widget(c):
                 style.equals("wallpaper")?WallpaperRules.selected(c):null;

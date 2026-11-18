@@ -1,72 +1,77 @@
 package app.planaloud;
 
-import android.content.res.ColorStateList;
-import android.graphics.Typeface;
+import android.graphics.*;
+import android.graphics.drawable.GradientDrawable;
+import android.text.*;
 import android.view.*;
 import android.widget.*;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import org.json.*;
+import org.json.JSONObject;
 
-/** Seven date columns with aligned, variable-height rows. Floating work is not repeated in every cell. */
+/** A fixed table viewport: only the grid pans/zooms; date and clock axes stay aligned. */
 final class WeekPreview {
-    private static final String[] BANDS={"全天","上午","下午","晚上","截止"};
-    static void show(MainActivity a,LinearLayout page,LocalDate first,java.util.function.Consumer<LocalDate> change,Runnable refresh){
-        LinearLayout controls=Ui.row(a);page.addView(controls);
-        Ui.cell(a,controls,Ui.button(a,"‹ 上一周",false,()->change.accept(first.minusWeeks(1))));
-        Ui.cell(a,controls,Ui.button(a,"回到今天",false,()->change.accept(LocalDate.now())));
-        Ui.cell(a,controls,Ui.button(a,"下一周 ›",false,()->change.accept(first.plusWeeks(1))));
-        page.addView(Ui.text(a,first+" — "+first.plusDays(6),20,true));
-        page.addView(Ui.help(a,"横向滑动查看七天 · 点击事项打开详情 · 长按打开操作菜单"));
-        HorizontalScrollView scroller=new HorizontalScrollView(a);scroller.setFillViewport(true);scroller.setHorizontalScrollBarEnabled(true);
-        scroller.setOnTouchListener((v,e)->{if(e.getActionMasked()==MotionEvent.ACTION_DOWN)v.getParent().requestDisallowInterceptTouchEvent(true);return false;});
-        TableLayout table=new TableLayout(a);scroller.addView(table);page.addView(scroller,new LinearLayout.LayoutParams(-1,-2));
-        int width=Ui.dp(a,Math.max(108,Math.min(155,(a.getResources().getConfiguration().screenWidthDp-86)/3)));
-        TableRow header=new TableRow(a);table.addView(header);heading(a,header,"时段",Ui.dp(a,54),false,null);
-        List<List<List<JSONObject>>> days=new ArrayList<>();
-        for(int i=0;i<7;i++){
-            LocalDate date=first.plusDays(i);
-            String label=date.format(DateTimeFormatter.ofPattern("EEE M/d",Locale.CHINA))+" "+Holidays.label(date);
-            String forecast=Forecast.summary(a,date);if(forecast.contains(" · "))forecast=forecast.substring(0,forecast.indexOf(" · "));
-            heading(a,header,label.trim()+"\n"+forecast,width,date.equals(LocalDate.now()),()->a.openSchedule(date));
-            List<List<JSONObject>> bands=new ArrayList<>();for(int b=0;b<BANDS.length;b++)bands.add(new ArrayList<>());days.add(bands);
-            try{
-                Data db=Data.get(a);JSONArray scheduled=db.scheduled(date,date.plusDays(1),false),deadlines=db.deadlines(date);Set<String> dueIds=new HashSet<>();
-                for(int n=0;n<scheduled.length();n++){JSONObject r=scheduled.getJSONObject(n);if(!r.optString("completed").isEmpty()||"waiting".equals(r.optString("activation")))continue;
-                    String start=r.optString("start_at");if(start.isEmpty()){if(dueIds.add(r.optString("id")))bands.get(4).add(r);continue;}
-                    int hour=PlanTime.start(r).getHour();bands.get(r.optBoolean("all_day")?0:hour<12?1:hour<18?2:3).add(r);
-                }
-                for(int n=0;n<deadlines.length();n++){JSONObject r=deadlines.getJSONObject(n);if(dueIds.add(r.optString("id")))bands.get(4).add(r);}
-            }catch(Exception e){a.message(e.getMessage());}
-        }
-        for(int band=0;band<BANDS.length;band++){
-            TableRow row=new TableRow(a);table.addView(row);heading(a,row,BANDS[band],Ui.dp(a,54),false,null);
-            for(int i=0;i<7;i++){
-                LocalDate date=first.plusDays(i);LinearLayout cell=Ui.column(a);cell.setPadding(Ui.dp(a,4),Ui.dp(a,3),Ui.dp(a,4),Ui.dp(a,6));cell.setMinimumHeight(Ui.dp(a,64));
-                if((i+band)%2==0)cell.setBackgroundColor(Ui.color(a,com.google.android.material.R.attr.colorSurfaceContainerLow));
-                row.addView(cell,new TableRow.LayoutParams(width,-1));
-                List<JSONObject> items=days.get(i).get(band);
-                if(items.isEmpty()){TextView dash=Ui.help(a,"—");dash.setGravity(Gravity.CENTER);cell.addView(dash);continue;}
-                for(int n=0;n<Math.min(4,items.size());n++){JSONObject r=items.get(n);
-                    String when=PlanTime.taskLabel(r,date,band==4,LocalDateTime.now());
-                    TextView entry=Ui.text(a,when+"\n"+r.optString("title"),13,true);entry.setMaxLines(3);entry.setEllipsize(android.text.TextUtils.TruncateAt.END);entry.setMinimumHeight(Ui.dp(a,48));entry.setPadding(Ui.dp(a,7),Ui.dp(a,5),Ui.dp(a,7),Ui.dp(a,5));entry.setGravity(Gravity.CENTER_VERTICAL);
-                    android.graphics.drawable.GradientDrawable shape=new android.graphics.drawable.GradientDrawable();shape.setCornerRadius(Ui.dp(a,9));shape.setColor(Ui.color(a,band==4?com.google.android.material.R.attr.colorTertiaryContainer:com.google.android.material.R.attr.colorSecondaryContainer));
-                    entry.setTextColor(Ui.color(a,band==4?com.google.android.material.R.attr.colorOnTertiaryContainer:com.google.android.material.R.attr.colorOnSecondaryContainer));
-                    int priority=Ui.priorityColor(a,PlanTime.priority(r,LocalDateTime.now()));if(priority!=0){shape.setColor(priority);entry.setTextColor(Ui.ink(a));}entry.setBackground(new android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(Ui.primary(a)&0x33ffffff),shape,null));
-                    LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=Ui.dp(a,4);cell.addView(entry,p);
-                    entry.setOnClickListener(v->a.detail(r));entry.setOnLongClickListener(v->{TaskQuickActions.menu(a,entry,r,refresh);return true;});
-                }
-                if(items.size()>4)cell.addView(Ui.button(a,"另有 "+(items.size()-4)+" 项",false,()->DailyTasks.show(a,date)));
+    static void show(MainActivity a,LinearLayout page,LocalDate first,java.util.function.Consumer<LocalDate> change,Runnable refresh){build(a,page,first,change,refresh,true);}
+    static void fill(MainActivity a,LinearLayout page,LocalDate first,Runnable refresh){build(a,page,first,a::showWeek,refresh,false);}
+    static float savedZoom(MainActivity a){float z=a.prefs.getFloat("week_zoom",1);return Float.isFinite(z)?Math.max(.3f,Math.min(3,z)):1;}
+    static void resetZoom(MainActivity a){a.prefs.edit().remove("week_zoom").remove("week_cards_zoom").apply();a.home();}
+    private static void build(MainActivity a,LinearLayout page,LocalDate anchor,java.util.function.Consumer<LocalDate> change,Runnable refresh,boolean controls){
+        LocalDate first=WeekOptions.first(a,anchor);
+        if(controls){LinearLayout tools=Ui.row(a);page.addView(tools);action(a,tools,"上一周",R.drawable.ic_back,()->change.accept(first.minusWeeks(1)));action(a,tools,"回到今天",R.drawable.ic_calendar,()->change.accept(LocalDate.now()));ImageButton next=new ImageButton(a);next.setImageResource(R.drawable.ic_back);next.setRotation(180);next.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.primary(a)));next.setBackgroundColor(Color.TRANSPARENT);next.setContentDescription("下一周");next.setTooltipText("下一周");next.setOnClickListener(v->change.accept(first.plusWeeks(1)));tools.addView(next,new LinearLayout.LayoutParams(0,Ui.dp(a,48),1));action(a,tools,"导出 PNG",android.R.drawable.ic_menu_save,()->WeekPng.request(a,first));action(a,tools,"使用帮助",android.R.drawable.ic_menu_help,()->WeekPng.help(a));page.addView(Ui.text(a,first+" — "+first.plusDays(6)+" · "+WeekOptions.rangeLabel(a),13,true));}
+        WeekOptions.controls(a,page,first);
+        WeekSchedule snapshot;try{snapshot=WeekSchedule.load(a,first);}catch(Exception failure){a.message("无法读取周日程："+failure.getMessage());return;}
+        if(WeekOptions.events(a)){WeekCards.fill(a,page,snapshot,refresh);return;}
+        WeekGeometry geometry=new WeekGeometry(snapshot);WeekSpans spans=new WeekSpans(snapshot);int width=Ui.dp(a,UiStyle.timetable(a)?88:128),header=Ui.dp(a,44),side=Ui.dp(a,46);TextPaint spanFont=new TextPaint();spanFont.setTextSize(Ui.dp(a,11)*a.getResources().getConfiguration().fontScale);int spanRow=Math.max(Ui.dp(a,24),(int)Math.ceil(spanFont.descent()-spanFont.ascent())+Ui.dp(a,10));int band=spans.lanes*spanRow,height=band+Math.round(geometry.minutes()*Ui.dp(a,72)/60f);float ppm=(height-band)/(float)geometry.minutes();
+        LinearLayout table=Ui.column(a);table.setTag("week-table");LinearLayout top=Ui.row(a);table.addView(top,new LinearLayout.LayoutParams(-1,header));TextView corner=label(a,"时间\n100%",true);top.addView(corner,new LinearLayout.LayoutParams(side,-1));corner.setContentDescription("双指缩放周表；长按恢复默认缩放");corner.setOnLongClickListener(v->{resetZoom(a);return true;});
+        TwoAxisScroll headerClip=new TwoAxisScroll(a);headerClip.setTag("week-header-pan");top.addView(headerClip,new LinearLayout.LayoutParams(0,-1,1));LinearLayout headings=Ui.row(a);headings.setTag("week-headings");headerClip.addView(headings,new FrameLayout.LayoutParams(width*7,header));
+        LinearLayout lower=Ui.row(a);lower.setGravity(Gravity.TOP);table.addView(lower,new LinearLayout.LayoutParams(-1,0,1));FrameLayout timeClip=new FrameLayout(a);lower.addView(timeClip,new LinearLayout.LayoutParams(side,-1));TimeScale hours=new TimeScale(a,geometry,ppm,band);hours.setTag("week-times");timeClip.addView(hours,new FrameLayout.LayoutParams(side,height));
+        TwoAxisScroll pan=new TwoAxisScroll(a);pan.setTag("week-pan");pan.setContentDescription("单指平移、双指缩放的周日程");FrameLayout contents=new FrameLayout(a);contents.setTag("week-content");pan.addView(contents,new FrameLayout.LayoutParams(width*7,height));lower.addView(pan,new LinearLayout.LayoutParams(0,-1,1));
+        contents.addView(new SpanLayer(a,snapshot,spans,width,spanRow,false),new FrameLayout.LayoutParams(-1,-1));LinearLayout columns=Ui.row(a);columns.setGravity(Gravity.TOP);contents.addView(columns,new FrameLayout.LayoutParams(-1,-1));
+        // Classic has no deadline section. Neo only shows it when there is real content.
+        boolean[] syncing={false};pan.onPosition((x,y)->{syncing[0]=true;headerClip.scrollTo(x,0);syncing[0]=false;hours.setTranslationY(-y);});headerClip.onPosition((x,y)->{if(!syncing[0])pan.scrollTo(x,pan.getScrollY());});pan.onGestureStart(headerClip::stopFling);headerClip.onGestureStart(pan::stopFling);
+        for(int d=0;d<7;d++){
+            LocalDate date=first.plusDays(d);TextView day=label(a,date.format(DateTimeFormatter.ofPattern("EEE\nM/d",Locale.CHINA)),true);if(!UiStyle.neo(a))day.setOnClickListener(v->a.openSchedule(date));if(date.equals(LocalDate.now()))day.setTextColor(Ui.primary(a));headings.addView(day,new LinearLayout.LayoutParams(width,header));
+            java.util.List<JSONObject> all=new ArrayList<>();for(JSONObject r:snapshot.allDay.get(d))if(!WeekSpans.eligible(r))all.add(r);
+            TimeDay body=new TimeDay(a,geometry,ppm,band);body.setTag(all.isEmpty()?"week-day":"week-all-day");GradientDrawable shape=new GradientDrawable();shape.setColor(all.isEmpty()?Color.TRANSPARENT:LiquidGlass.tint(Ui.color(a,com.google.android.material.R.attr.colorTertiaryContainer),95));shape.setStroke(Ui.dp(a,1),LiquidGlass.tint(Ui.muted(a),60));body.setBackground(shape);columns.addView(body,new LinearLayout.LayoutParams(width,height));int rail=all.isEmpty()?0:Ui.dp(a,18);
+            if(!all.isEmpty()){View strip=new AllDayRail(a,all,band);strip.setContentDescription("全天 · "+titles(all));strip.setOnClickListener(v->choose(a,all,"全天事项"));body.addView(strip,new FrameLayout.LayoutParams(rail,-1));}
+            for(WeekGeometry.Timed event:geometry.days.get(d)){
+                int eventWidth=Math.max(1,(width-rail-Ui.dp(a,6))/event.lanes),eventHeight=Math.max(2,Math.round(geometry.height(event,ppm)));TextView entry=Ui.text(a,event.record.optString("title")+(eventHeight>=Ui.dp(a,44)?"\n"+PlanTime.dailyLabel(event.record,date):""),11,true);entry.setPadding(Ui.dp(a,3),0,Ui.dp(a,3),0);entry.setGravity(Gravity.TOP);entry.setEllipsize(TextUtils.TruncateAt.END);entry.setMaxLines(Math.max(1,eventHeight/Ui.dp(a,16)));entry.setContentDescription(PlanTime.dailyLabel(event.record,date)+" · "+event.record.optString("title"));entry.setTooltipText(entry.getContentDescription());entry.setTag("week-timed-event");if(UiStyle.timetable(a)){String location=event.record.optString("location");entry.setText(event.record.optString("title")+"\n"+PlanTime.dailyLabel(event.record,date)+(location.isEmpty()?"":"\n"+location));entry.setTextSize(10);entry.setPadding(Ui.dp(a,5),Ui.dp(a,3),Ui.dp(a,3),0);}
+                if(PriorityPattern.present(event.record))entry.setPadding(entry.getPaddingLeft()+Ui.dp(a,16),entry.getPaddingTop(),entry.getPaddingRight(),entry.getPaddingBottom());entry.setText(WeekCompletion.label(event.record,entry.getText()));if(WeekCompletion.done(event.record))entry.setContentDescription(entry.getContentDescription()+"，已完成");
+                android.graphics.drawable.Drawable tile=EventColors.shape(a,event.record,5);if(spans.contains(d))tile.setAlpha(185);entry.setBackground(tile);
+                FrameLayout.LayoutParams at=new FrameLayout.LayoutParams(Math.max(1,eventWidth-Ui.dp(a,2)),eventHeight);at.leftMargin=rail+Ui.dp(a,3)+event.lane*eventWidth;at.topMargin=band+Math.round(geometry.top(event,ppm));body.addView(entry,at);WeekActions.bind(a,entry,event.record,refresh);
             }
+
         }
-        page.addView(Ui.help(a,"跨天事项按原开始时刻归类；没有日期的事项保留在今天的待安排区。"));
-        Ui.enter(scroller,1);
+        SpanLayer labels=new SpanLayer(a,snapshot,spans,width,spanRow,true);labels.setTag("week-long-spans");contents.addView(labels,new FrameLayout.LayoutParams(-1,-1));page.addView(table,new LinearLayout.LayoutParams(-1,0,1));
+        WeekTextScale fixedText=new WeekTextScale(contents);pan.zoomable(savedZoom(a),z->{fixedText.apply(z);int total=Math.round(width*7*z);headings.getLayoutParams().width=total;headings.requestLayout();for(int d=0;d<7;d++){int scaled=Math.round((d+1)*width*z)-Math.round(d*width*z);headings.getChildAt(d).getLayoutParams().width=scaled;headings.getChildAt(d).requestLayout();}hours.zoom=z;hours.getLayoutParams().height=Math.round(height*z);hours.requestLayout();hours.invalidate();corner.setText("时间\n"+Math.round(z*100)+"%");headerClip.post(()->{syncing[0]=true;headerClip.scrollTo(pan.getScrollX(),0);syncing[0]=false;});},()->a.prefs.edit().putFloat("week_zoom",pan.zoom()).apply());
     }
-    private static void heading(MainActivity a,TableRow row,String text,int width,boolean today,Runnable action){
-        TextView label=Ui.text(a,text,12,true);label.setGravity(Gravity.CENTER);label.setPadding(Ui.dp(a,3),Ui.dp(a,8),Ui.dp(a,3),Ui.dp(a,8));label.setMinimumHeight(Ui.dp(a,52));label.setMaxLines(3);
-        label.setBackgroundColor(Ui.color(a,today?com.google.android.material.R.attr.colorPrimaryContainer:com.google.android.material.R.attr.colorSurfaceContainer));
-        if(today)label.setTextColor(Ui.color(a,com.google.android.material.R.attr.colorOnPrimaryContainer));
-        if(action!=null)label.setOnClickListener(v->action.run());row.addView(label,new TableRow.LayoutParams(width,-1));
+    private static void action(MainActivity a,LinearLayout row,String name,int icon,Runnable run){com.google.android.material.button.MaterialButton button=Ui.iconButton(a,"",icon,false,run);button.setContentDescription(name);button.setTooltipText(name);row.addView(button,new LinearLayout.LayoutParams(0,Ui.dp(a,48),1));}
+    private static TextView label(MainActivity a,String title,boolean bold){TextView text=Ui.text(a,title,bold?12:11,bold);text.setGravity(Gravity.CENTER);return text;}
+    private static String titles(java.util.List<JSONObject> records){StringBuilder names=new StringBuilder();for(JSONObject r:records){if(names.length()>0)names.append("、");names.append(r.optString("title"));}return names.toString();}
+    private static void choose(MainActivity a,java.util.List<JSONObject> records,String title){String[] names=new String[records.size()];for(int i=0;i<names.length;i++)names[i]=records.get(i).optString("title");new com.google.android.material.dialog.MaterialAlertDialogBuilder(a).setTitle(title).setItems(names,(d,n)->WeekActions.open(a,records.get(n))).setNegativeButton("关闭",null).show();}
+    private static final class TimeScale extends View {
+        final MainActivity a;final WeekGeometry geometry;final float ppm;final int band;float zoom=1;final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        TimeScale(MainActivity a,WeekGeometry g,float ppm,int band){super(a);this.a=a;geometry=g;this.ppm=ppm;this.band=band;}
+        @Override protected void onDraw(Canvas canvas){paint.setTextSize(Ui.dp(a,10)*getResources().getConfiguration().fontScale);paint.setTextAlign(Paint.Align.CENTER);for(int minute=geometry.firstMinute;minute<=geometry.lastMinute;minute+=60){paint.setColor(minute<480||minute>1320?Ui.primary(a):Ui.muted(a));float y=(band+(minute-geometry.firstMinute)*ppm)*zoom;canvas.drawText(DayEvents.clock(minute),getWidth()/2f,Math.max(-paint.ascent(),Math.min(getHeight()-paint.descent(),y-paint.ascent()/2)),paint);}}
+    }
+    private static final class TimeDay extends FrameLayout {
+        final MainActivity a;final WeekGeometry geometry;final float ppm;final int band;final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        TimeDay(MainActivity a,WeekGeometry g,float ppm,int band){super(a);this.a=a;geometry=g;this.ppm=ppm;this.band=band;setWillNotDraw(false);}
+        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);paint.setColor(LiquidGlass.tint(Ui.muted(a),60));paint.setStrokeWidth(Math.max(1,Ui.dp(a,1)));for(int minute=geometry.firstMinute;minute<=geometry.lastMinute;minute+=60){float y=band+(minute-geometry.firstMinute)*ppm;canvas.drawLine(0,y,getWidth(),y,paint);}}
+    }
+    private static final class AllDayRail extends View implements WeekTextScale.CanvasText {
+        float fontZoom=1;public void textZoom(float zoom){fontZoom=zoom;invalidate();}
+        final MainActivity a;final CharSequence title;final int band;final TextPaint paint=new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        AllDayRail(MainActivity a,java.util.List<JSONObject> records,int band){super(a);this.a=a;this.band=band;title=TextUtils.concat("全天 · ",WeekCompletion.titles(records));}
+        @Override protected void onDraw(Canvas canvas){paint.setColor(Ui.muted(a));paint.setTextSize(Ui.dp(a,10)*getResources().getConfiguration().fontScale/fontZoom);canvas.save();canvas.rotate(90);canvas.translate(band+Ui.dp(a,6),-Ui.dp(a,16));StaticLayout.Builder.obtain(title,0,title.length(),paint,Math.max(1,getHeight()-band-Ui.dp(a,6))).setIncludePad(false).setMaxLines(1).setEllipsize(TextUtils.TruncateAt.END).build().draw(canvas);canvas.restore();}
+    }
+    static final class SpanLayer extends View implements WeekTextScale.CanvasText {
+        float fontZoom=1;public void textZoom(float zoom){fontZoom=zoom;invalidate();}
+        final MainActivity a;final WeekSchedule week;final WeekSpans spans;final int width,row;final boolean foreground;final TextPaint paint=new TextPaint(Paint.ANTI_ALIAS_FLAG);WeekSpans.Span selected;
+        SpanLayer(MainActivity a,WeekSchedule week,WeekSpans spans,int width,int row,boolean foreground){super(a);this.a=a;this.week=week;this.spans=spans;this.width=width;this.row=row;this.foreground=foreground;if(foreground){java.util.List<JSONObject> records=new ArrayList<>();for(WeekSpans.Span s:spans.spans)records.add(s.record);setContentDescription("长期任务 · "+titles(records));setOnClickListener(v->{if(selected!=null)WeekActions.open(a,selected.record);else if(!records.isEmpty())choose(a,records,"长期任务");});}}
+        @Override protected void onDraw(Canvas canvas){for(WeekSpans.Span span:spans.spans){float left=span.first*width,right=(span.last+1)*width,top=span.lane*row;paint.setColor(LiquidGlass.tint(DayEvents.color(span.record),foreground?65:18));canvas.drawRect(left,foreground?top:0,right,foreground?top+row-2:getHeight(),paint);if(!foreground)continue;PriorityPattern.drawScaled(canvas,span.record,new RectF(left,top,right,top+row-2),a.getResources().getDisplayMetrics().density);int today=span.titleDay(week.first,LocalDate.now());if(today<0)continue;paint.setTextSize(Ui.dp(a,11)*getResources().getConfiguration().fontScale);paint.setColor(Ui.ink(a));CharSequence title=TextUtils.ellipsize(span.record.optString("title"),paint,width-Ui.dp(a,12),TextUtils.TruncateAt.END);canvas.save();canvas.clipRect(today*width+Ui.dp(a,4),top,(today+1)*width-Ui.dp(a,4),top+row-2);paint.setStrikeThruText(WeekCompletion.done(span.record));canvas.drawText(title.toString(),today*width+Ui.dp(a,PriorityPattern.present(span.record)?22:6),top+(row-paint.ascent()-paint.descent())/2,paint);paint.setStrikeThruText(false);canvas.restore();}}
+        @Override public boolean onTouchEvent(MotionEvent event){if(!foreground)return false;switch(event.getActionMasked()){case MotionEvent.ACTION_DOWN:selected=null;for(WeekSpans.Span span:spans.spans)if(event.getX()>=span.first*width&&event.getX()<(span.last+1)*width&&event.getY()>=span.lane*row&&event.getY()<(span.lane+1)*row){selected=span;return true;}return false;case MotionEvent.ACTION_UP:if(selected==null)return false;performClick();selected=null;return true;case MotionEvent.ACTION_CANCEL:selected=null;return false;default:return selected!=null;}}
+        @Override public boolean performClick(){super.performClick();return true;}
     }
 }

@@ -4,7 +4,9 @@
 
 **不注册、不联网、不部署服务器，也能使用本地核心功能。** AI、天气、同步和更新检查均为可选联网能力。
 
-**当前 Android： [1.5.0 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.0/PlanAloud-android.apk)** · [发布页](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.0) · [使用说明](docs/Android-1.5.0.md)
+**Android 1.5.2： [正式 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.2/PlanAloud-android.apk)** · [正式发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.2) · [独立 Debug 发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.2-debug) · [使用说明](docs/Android-1.5.2.md)
+
+1.5.2 使用新的正式签名，不能覆盖旧版安装，请先导出备份。修复底栏高亮、闪烁和左右滑动，新增可跳过的首次使用引导；移除本地语音，默认 DeepSeek ASR。正式包进行代码和资源裁剪，Debug 包单独发布。
 
 **Android 1.5.0 · 序言 / Plan Aloud：** 半透明悬浮助手、月历节日滚动、挂件遮罩、聊天内指令与回收站改进。Android 安装包约 5.2 MB。
 
@@ -12,11 +14,13 @@
 
 助手支持左右聊天气泡、主题色矢量图标、点击图片预览、直接从对话生成课表草稿、修改与软删除现有安排。课表/通知仍需人工核验，助手变更和删除支持版本校验撤销。收集箱可按软件/群聊一键交给AI，见[新版说明](docs/Android-1.3.2.md)。
 
-语音支持系统服务、百炼Qwen-ASR官方API及MIT whisper.cpp本地小模型。录音文字先填入输入框，不直接执行；本地引擎和模型按需获取，不增加常驻内存。本次提供双ARM引擎签名包（每架构约1MB），不附带大模型权重；可自行导入官方多语言GGML .bin或在自托管端发布签名模型。百炼API接入不代表在Android里运行CLI，详见[统一更新与语音](docs/统一更新与语音.md)。
+语音默认使用 DeepSeek 官方 ASR，使用官方 DeepSeek 地址保存 AI 密钥时会同时配置语音。保留系统服务与百炼 Qwen-ASR，语音插件入口和返回协议不变。1.5.2 已移除本地识别引擎、模型下载及原生编译依赖；升级时自动清理旧模型缓存。录音文字先填入输入框，不直接执行。详见[统一更新与语音](docs/统一更新与语音.md)。
 
 主包、模块、引擎和可选模型都可从同一GitHub目录或日栖服务器获取。服务端更新入口必须登录，每账号默认每小时10次，所有设备共享；原同步v1契约保留。Windows不重建。OCR继续暂缓。
 
 按要求已依次提供0.5.0、1.0.0和1.1.0三个发布阶段：任务管理补齐、连接现有TaskFlow Windows、操作与资源完善。Windows源码不修改。所有新版均只编译打包，实际连接与交互由用户实测。
+
+反馈修复预览版 **1.5.1-preview.1** 的变化与新增设置见[修复说明](docs/Android-反馈修复.md)。预览安装包使用调试签名。
 
 ## 测试版功能
 
@@ -57,13 +61,12 @@ Android 使用 JDK 17、Gradle 9.6.1、Android SDK 36，Android Gradle Plugin 9.
 
 ```powershell
 cd android
-python ../tools/fetch_whisper.py
 gradle :app:assembleRelease :app:exportModuleClasspath
 # 可选OCR插件先在仓库根目录运行 python tools/fetch_ocr.py，再执行：
 # gradle :ocrPlugin:assembleRelease
 ```
 
-正式 APK 需要稳定签名。维护者先执行 `python tools/release_keys.py`（仅构建时需 `cryptography`），在本机 `.signing/` 生成 Android 证书与更新签名私钥。**请离线备份此目录；丢失证书将无法为已安装版本提供兼容更新。** 对本项目进行 fork 时应生成自己的密钥、公钥和应用 ID。
+正式 APK 需要稳定签名。维护者先执行 `python tools/release_keys.py --android-only`（仅构建时需 `cryptography`），在本机 `.signing/` 生成 Android 证书与更新签名私钥。**请离线备份此目录；丢失证书将无法为已安装版本提供兼容更新。** 对本项目进行 fork 时应生成自己的密钥、公钥和应用 ID。
 
 ```powershell
 cd windows
@@ -97,7 +100,7 @@ Windows 打包必须把 `DayFlow.Updater.*` 与 `DayFlow.Widget.*` 一起放到�
 
 - 通知通过系统通知访问授权采集；应用隐藏的内容、未发到通知栏的聊天、历史聊天不能保证读取。Shizuku 增强尚未接入。
 - 截图由统一Agent调用用户配置的视觉模型，或使用可选独立离线OCR插件；模型不计入主包。邮件目前通过邮件应用通知、粘贴正文或系统分享导入，没有 IMAP 邮箱抓取。
-- 课表支持CSV、经确认的AI截图、标准HTML表格与有界重复ICS导入，不含各学校教务系统登录适配。图片自动压缩，不保留原图。
+- 课表支持CSV、经确认的AI截图、标准HTML表格与有界重复ICS导入，不含各学校教务系统登录适配。AI 对话与课表识别上传原图；图片笔记仍使用压缩 JPEG 保存。
 - 万年历使用 lunar-java 离线显示农历、节气与传统节日，天气按需刷新并缓存；1.2.0提供调休标记及宜忌二级页面；不包含各学校校历。
 - 左下角右滑目前为应用内手势；全局悬浮手势尚未接入。
 - Android 的普通通知提醒受系统省电策略影响，当前安排最近100个可提醒事项；系统闹钟接口只传时分，不能表达任意未来日期。系统日历通过确认页面导出，重复导出可能产生重复项，目前没有双向日历同步。
@@ -124,3 +127,5 @@ Android 自定义 instrumentation 测试运行真实 SQLite、导入解析和 Ke
 本项目代码采用 [MIT License](LICENSE)。Android UI 依赖的 Material Components 和 AndroidX 使用 Apache 2.0，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。Android SDK、OpenJDK、.NET、Python、Caddy 与构建工具各自保留其原许可证；MIT 不替代这些许可证。Android 天气优先使用 [Open-Meteo](https://open-meteo.com/)，失败时切换到 [MET Norway](https://api.met.no/weatherapi/locationforecast/2.0/documentation)。在「位置与天气」中选择城市、定位或输入经纬度即可查询。AI 使用用户自行配置的服务。
 
 其他客户端开发请参阅 [同步消息类型与 API](docs/客户端同步API.md)。
+
+完整操作与 AI 查询说明：[功能说明](docs/功能说明.md)。应用内 AI 可通过 `guide.read` 按章节查询同一份文档。

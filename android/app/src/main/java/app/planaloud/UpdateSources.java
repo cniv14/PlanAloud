@@ -11,7 +11,7 @@ public final class UpdateSources {
  static void migrate(Context c){SharedPreferences p=prefs(c);if(!p.contains("updates_source")){p.edit().putString("updates_source",p.getString("hot_source","github")).putBoolean("updates_auto",p.getBoolean("update_auto",false)||p.getBoolean("hot_auto",false)).apply();}}
  static String url(Context c,String name)throws Exception{return server(c)?Network.serverEndpoint(prefs(c).getString("server",""))+"/v1/updates/"+name:Network.endpoint(prefs(c).getString("updates_github",GITHUB),true)+"/"+name;}
  static HttpURLConnection open(Context c,String name)throws Exception{
-  if(!name.matches("android-update\\.json|PlanAloud-android\\.apk|runtime-update\\.json|voice-engine\\.json|voice-engine-(arm64|armv7)\\.zip|voice-model\\.(json|bin)|(assistant|markdown|almanac|voice)-module\\.json"))throw new IOException("未知更新资源");
+  if(!name.matches("android-update\\.json|PlanAloud-android\\.apk|runtime-update\\.json|(assistant|markdown|almanac|voice)-module\\.json"))throw new IOException("未知更新资源");
   String target=url(c,name);if(!server(c))return Updates.open(target);
   String token=Secrets.get(c,"token");if(token.isEmpty())throw new IOException("请先登录序言服务端，再获取更新");
   HttpURLConnection connection=(HttpURLConnection)new URL(target).openConnection();connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(15000);connection.setReadTimeout(30000);connection.setRequestProperty("Authorization","Bearer "+token);

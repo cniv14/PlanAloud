@@ -30,9 +30,14 @@ public final class SettingsPanels {
         Ui.cell(a,first,Ui.tile(a,"同步","备份、云端、局域网",this::sync));
         Ui.cell(a,second,Ui.tile(a,"AI 模型","厂商与模型",this::api));
         Ui.cell(a,second,Ui.tile(a,"更新","本体与内嵌模块",this::updates));
-        form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
+        if(!UiStyle.neo(a))form.addView(Ui.button(a,"更多功能",true,()->CommandScreen.show(a)));
+        form.addView(Ui.button(a,UiStyle.neo(a)?"完整功能说明":"使用引导",false,()->{if(UiStyle.neo(a))FeatureGuide.show(a);else Onboarding.show(a);}));
+        form.addView(Ui.button(a,"诊断与导出日志",false,()->Diagnostics.show(a)));
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);
+        if(!UiStyle.neo(a))form.addView(Ui.tile(a,"主界面栏目与列数","自定义栏目，笔记和收集箱默认隐藏",()->HomeLayout.show(a)));
+        form.addView(Ui.tile(a,"界面风格",UiStyle.description(a),()->UiStyle.show(a)));
+        form.addView(Ui.tile(a,"界面与字体大小","分别调整界面缩放和字体大小",()->DisplaySettings.show(a)));
         Spinner floatingMask=TaskTypes.spinner(a,form,"悬浮窗透明遮罩",Arrays.asList("应用主题色（默认）","中性色"));
         floatingMask.setSelection("neutral".equals(p.getString(FloatingAssistant.MASK_COLOR,"theme"))?1:0);
         floatingMask.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
@@ -41,24 +46,26 @@ public final class SettingsPanels {
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent){}
         });
-        toggle(form,"减少序言动效","保留布局，关闭主要过渡与壁纸切换动画。",p.getBoolean("reduce_motion",false),on->p.edit().putBoolean("reduce_motion",on).apply());
+        toggle(form,"减少序言动效","保留布局，暂停应用与组件的卡片动效，关闭主要过渡。",p.getBoolean("reduce_motion",false),on->{p.edit().putBoolean("reduce_motion",on).apply();AgendaWidget.refresh(a);});
         toggle(form,"紧凑列表与表格","减少卡片和表格留白，操作区域仍至少48dp。",p.getBoolean("compact_ui",false),on->{p.edit().putBoolean("compact_ui",on).apply();a.recreate();});
-        form.addView(Ui.tile(a,"应用图标",ProviderAppearance.current(p).label,()->ProviderAppearance.show(a)));
-        form.addView(Ui.tile(a,"桌面小组件","单双列排布、背景和桌面添加",()->widget(this::appearance)));
+        AppearanceTiles.add(a,form);
+        form.addView(Ui.tile(a,"卡片样式","纯色、质感、命名图片、SVG 与动态效果",()->CardBackgrounds.show(a)));
+        form.addView(Ui.tile(a,"事件默认色系","粉系、马卡龙、水晶、森林、落日 · 不随深浅主题变色",()->PaletteSettings.show(a)));
         ThemeColors.settings(a,form);
-        toggle(form,"动态流光","仅在前台运行，省电模式暂停。",p.getBoolean("motion",false),on->{p.edit().putBoolean("motion",on).apply();a.refreshBackdrop();});toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();}});form.addView(slider);
+        toggle(form,"背景模糊","Android 12 及以上可用。",p.getBoolean("blur",true),on->{p.edit().putBoolean("blur",on).apply();a.refreshBackdrop();AgendaWidget.refresh(a);});toggle(form,"左右滑动切换页面","今天左滑进入周预览；输入和裁剪区域不触发切页。",p.getBoolean("swipe",true),on->p.edit().putBoolean("swipe",on).apply());form.addView(Ui.text(a,"背景不透明度",14,true));Slider slider=new Slider(a);slider.setValueFrom(65);slider.setValueTo(100);slider.setStepSize(1);slider.setValue(p.getInt("opacity",86));slider.addOnChangeListener((s,value,user)->{if(user){p.edit().putInt("opacity",Math.round(value)).apply();a.refreshBackdrop();AgendaWidget.refresh(a);}});form.addView(slider);
     }
     void widget(Runnable back){
         LinearLayout page=a.fullPage("桌面小组件",back);page.addView(Ui.text(a,"桌面小组件",24,true));
-        page.addView(Ui.help(a,"单列展开标题、时间、截止倒计时、地点和备注。两列为紧凑排布，窄尺寸自动使用单列。"));
-        Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","grid"))?1:0);
+        page.addView(Ui.help(a,"两种小组件都只显示标题、时间和地点，不展示正文与备注。近期日程支持单列／两列，窄尺寸自动使用单列。"));
+        Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","list"))?1:0);
         List<String> modes=Arrays.asList("glass","solid","image","wallpaper");Spinner style=TaskTypes.spinner(a,page,"背景样式",Arrays.asList("液态玻璃","主题实色","自选图片 + 玻璃","跟随应用壁纸 + 玻璃"));style.setSelection(Math.max(0,modes.indexOf(p.getString("widget_background","glass"))));
         TextInputEditText tint=Ui.field(a,page,"玻璃底层遮罩 · 48–94%",Integer.toString(p.getInt("widget_tint",73)),false);tint.setInputType(InputType.TYPE_CLASS_NUMBER);
         LinearLayout pair=Ui.row(a);page.addView(pair);
         Ui.cell(a,pair,Ui.button(a,"应用样式",true,()->{try{int value=Integer.parseInt(tint.getText().toString());if(value<48||value>94)throw new Exception("遮罩需在 48–94%");String mode=modes.get(style.getSelectedItemPosition());if(mode.equals("image")&&!WallpaperImages.widget(a).isFile())throw new Exception("请先选择背景图");p.edit().putString("widget_layout",layout.getSelectedItemPosition()==0?"list":"grid").putString("widget_background",mode).putInt("widget_tint",value).apply();AgendaWidget.refresh(a);a.message("已更新桌面小组件");}catch(Exception e){a.message(e.getMessage());}}));
         Ui.cell(a,pair,Ui.button(a,"选择背景图",false,()->a.pickFile(120,"image/*")));
         toggle(page,"显示收集箱","显示待确认数量和最新内容。",p.getBoolean("widget_inbox",true),on->{p.edit().putBoolean("widget_inbox",on).apply();AgendaWidget.refresh(a);});
-        page.addView(Ui.button(a,"添加到桌面",false,()->{AppWidgetManager manager=AppWidgetManager.getInstance(a);if(manager.isRequestPinAppWidgetSupported()){manager.requestPinAppWidget(new ComponentName(a,AgendaWidget.class),null,null);a.message("请在桌面启动器中确认添加");}else a.message("请长按桌面 → 小组件 → 序言");}));
+        page.addView(Ui.text(a,"添加小组件",18,true));page.addView(Ui.help(a,"近期日程保留原有布局和自定义背景；今天与明天为独立深色双栏，左右两列可分别滚动。两种组件都支持直接完成事项。"));
+        for(Class<?> provider:new Class<?>[]{AgendaWidget.class,TwoDayWidget.class})page.addView(Ui.button(a,provider==AgendaWidget.class?"添加近期日程":"添加今天与明天",false,()->{AppWidgetManager manager=AppWidgetManager.getInstance(a);if(manager.isRequestPinAppWidgetSupported()){manager.requestPinAppWidget(new ComponentName(a,provider),null,null);a.message("请在桌面启动器中确认添加");}else a.message("请长按桌面 → 小组件 → 序言");}));
         page.addView(Ui.help(a,"玻璃使用半透明渐变、高光边缘与图片遮罩。桌面系统不允许小组件实时模糊下方内容。"));
     }
     public void weather(){
@@ -68,14 +75,14 @@ public final class SettingsPanels {
         String source=p.getString("weather_source","");
         if(!OpenWeatherSources.cached(a,"").isEmpty())
             form.addView(Ui.help(a,"来源 "+(p.getBoolean("weather_via_server",false)?"序言服务端 / ":"")+source+" · "+p.getString("weather_time","").replace("T"," ")));
-        form.addView(Ui.help(a,"天气优先使用 Open-Meteo，服务不可用时自动切换到 MET Norway。可使用大致位置、搜索城市或输入经纬度。"));
+        form.addView(Ui.help(a,"天气优先使用 Open-Meteo，服务不可用时自动切换到 MET Norway。支持精确定位、搜索城市或输入经纬度；系统仅授权大致位置时使用大致位置。预报精度取决于天气服务网格。"));
         toggle(form,"优先使用序言服务端","连接序言账号后生效。服务端不可用时自动改用开放天气来源。",
                 p.getBoolean("weather_use_server",true),on->p.edit().putBoolean("weather_use_server",on).apply());
         if(!p.getString("lat","").isEmpty())
             form.addView(Ui.button(a,"刷新已选位置天气",false,()->a.job(()->Forecast.refresh(a),this::weather)));
-        form.addView(Ui.button(a,"使用当前位置获取天气",true,()->a.locationWeather.request()));
+        form.addView(Ui.button(a,"使用当前位置获取天气",true,()->a.locationWeather.requestPrecise()));
         toggle(form,"自动更新位置天气","打开应用时，缓存超过6小时才刷新。",p.getBoolean("auto_location",false),
-                on->{p.edit().putBoolean("auto_location",on).apply();if(on)a.locationWeather.request();});
+                on->{p.edit().putBoolean("auto_location",on).apply();if(on)a.locationWeather.requestPrecise();});
         form.addView(Ui.button(a,"搜索并选择城市",false,this::citySearch));
         form.addView(Ui.button(a,"输入经纬度",false,this::weatherCoordinates));
         TextView credit=Ui.help(a,"");

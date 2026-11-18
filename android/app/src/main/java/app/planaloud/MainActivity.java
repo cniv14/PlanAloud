@@ -31,10 +31,12 @@ import java.util.concurrent.*;
 
 /** Native Material navigation. All editing and settings use full pages, not action dialogs. */
 public final class MainActivity extends AppCompatActivity {
+ @Override protected void attachBaseContext(android.content.Context base){super.attachBaseContext(app.planaloud.ui.UiScale.wrap(base));}
+
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     public SharedPreferences prefs;public EditorPanel editorState;public NoteEditor noteState;public LocationWeather locationWeather;
-    private com.google.android.material.button.MaterialButton agentBar;private LinearLayout shell,agentRow;private FrameLayout content;private BottomNavigationView navigationBar;private LinearProgressIndicator progress;private Backdrop backdrop;private boolean selectingTab,rootPage;private String screenName="";private long screenGeneration;
-    private String tab="agenda";private boolean dayView,busy,weekPreview,swiping,gestureEligible;private int transitionDirection,scheduleScrollY;private ScrollView scheduleScroll;private LocalDate selected=LocalDate.now(),weekStart=LocalDate.now();private Runnable backAction;private float downX,downY;
+    private com.google.android.material.button.MaterialButton agentBar;private LinearLayout shell,agentRow;private FrameLayout content;private BottomNavigationView navigationBar;private LinearProgressIndicator progress;private Backdrop backdrop;private boolean selectingTab,handlingNavigationTap,rootPage;private int navigationMask=-1;private PageSwipe pageSwipe;Onboarding onboarding;DisplaySettings.TrialPrompt displayTrial;private String screenName="";private long screenGeneration;
+    private String tab="agenda";private boolean dayView,busy,weekPreview;private int transitionDirection,scheduleScrollY;private ScrollView scheduleScroll;private LocalDate selected=LocalDate.now(),weekStart=LocalDate.now();private Runnable backAction;
     private String moreFeaturesTab, moreFeaturesQuery="";
     private int moreFeaturesScroll;
     private LocalDate moreFeaturesDate, moreFeaturesWeekStart;
@@ -69,13 +71,13 @@ public final class MainActivity extends AppCompatActivity {
         moreFeaturesScroll=0;
         renderHome();
     }
-    public void onCreate(Bundle state){super.onCreate(state);ThemeColors.apply(this);WindowCompat.setDecorFitsSystemWindows(getWindow(),false);prefs=getSharedPreferences("settings",0);ProviderAppearance.syncLauncher(this,prefs);if(!prefs.contains("device_id"))prefs.edit().putString("device_id",UUID.randomUUID().toString()).apply();locationWeather=new LocationWeather(this);
+    public void onCreate(Bundle state){super.onCreate(state);ThemeColors.apply(this);WindowCompat.setDecorFitsSystemWindows(getWindow(),false);prefs=getSharedPreferences("settings",0);weekStart=WeekOptions.first(this,weekStart);tab=HomeNavigation.first(visibleNavigationMask());Onboarding.prepare(prefs,!prefs.contains("device_id"));ProviderAppearance.syncLauncher(this,prefs);if(!prefs.contains("device_id"))prefs.edit().putString("device_id",UUID.randomUUID().toString()).apply();locationWeather=new LocationWeather(this);
         NotificationManager channels=getSystemService(NotificationManager.class);NotificationChannel schedule=new NotificationChannel("schedule","日程提醒",NotificationManager.IMPORTANCE_HIGH);schedule.setDescription("日程到点提醒；闹钟响铃使用独立前台服务");schedule.enableVibration(true);schedule.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());channels.createNotificationChannel(schedule);
         FrameLayout base=new FrameLayout(this);backdrop=new Backdrop(this);base.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));shell=Ui.column(this);base.addView(shell,new FrameLayout.LayoutParams(-1,-1));setContentView(base);
         ViewCompat.setOnApplyWindowInsetsListener(base,(v,insets)->{androidx.core.graphics.Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());androidx.core.graphics.Insets ime=insets.getInsets(WindowInsetsCompat.Type.ime());shell.setPadding(bars.left,bars.top,bars.right,bars.bottom);if(content!=null)content.setPadding(0,0,0,Math.max(0,ime.bottom-bars.bottom-(rootPage&&navigationBar!=null?navigationBar.getHeight():0)));return WindowInsetsCompat.CONSUMED;});
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){public void handleOnBackPressed(){if(backAction!=null)backAction.run();else if(!"agenda".equals(tab)){tab="agenda";home();}else moveTaskToBack(true);}});
         backdrop.load();home();Updates.configureJob(this);HotUpdateJob.configure(this);
-        if(state!=null){scheduleScrollY=state.getInt("schedule_scroll");tab=state.getString("tab","agenda");dayView=state.getBoolean("day",false);weekPreview=state.getBoolean("week_preview",false);selected=LocalDate.parse(state.getString("date",LocalDate.now().toString()));weekStart=LocalDate.parse(state.getString("week_start",LocalDate.now().toString()));
+        if(state!=null){scheduleScrollY=state.getInt("schedule_scroll");tab=state.getString("tab","agenda");dayView=state.getBoolean("day",false);weekPreview=state.getBoolean("week_preview",false);if(weekPreview&&tab.equals("agenda"))tab="week";selected=LocalDate.parse(state.getString("date",LocalDate.now().toString()));weekStart=LocalDate.parse(state.getString("week_start",LocalDate.now().toString()));
         moreFeaturesTab=state.getString("more_features_tab");
         if(moreFeaturesTab!=null){
             moreFeaturesQuery=state.getString("more_features_query","");
@@ -85,11 +87,17 @@ public final class MainActivity extends AppCompatActivity {
             moreFeaturesWeekPreview=state.getBoolean("more_features_week_preview");
             moreFeaturesScheduleScroll=state.getInt("more_features_schedule_scroll");
         }
-        home();if(state.containsKey("editor")||state.containsKey("editor_file"))try{edit(state.containsKey("editor_file")?EditorSnapshot.read(this,state.getString("editor_file")):new JSONObject(state.getString("editor")));if(noteState!=null&&state.containsKey("md_uri"))noteState.bindExternal(Uri.parse(state.getString("md_uri")),state.getBoolean("md_writable"));}catch(Exception ignored){}else if(moreFeaturesTab==null&&"更多功能".equals(state.getString("screen")))CommandScreen.show(this);else if("外观与主题".equals(state.getString("screen")))new SettingsPanels(this).appearance();else if("应用图标".equals(state.getString("screen")))ProviderAppearance.show(this);else if("AI 配置".equals(state.getString("screen")))AiSettings.show(this);}else{String initial=prefs.getString("start_page","today");if(initial.equals("manage"))PlanHub.show(this);else if(!initial.equals("today")){tab=initial;home();}handleIntent(getIntent());}
+        home();if(state.containsKey("editor")||state.containsKey("editor_file"))try{edit(state.containsKey("editor_file")?EditorSnapshot.read(this,state.getString("editor_file")):new JSONObject(state.getString("editor")));if(noteState!=null&&state.containsKey("md_uri"))noteState.bindExternal(Uri.parse(state.getString("md_uri")),state.getBoolean("md_writable"));}catch(Exception ignored){}else if(moreFeaturesTab==null&&"更多功能".equals(state.getString("screen")))CommandScreen.show(this);else if("外观与主题".equals(state.getString("screen")))new SettingsPanels(this).appearance();else if("界面风格".equals(state.getString("screen")))UiStyle.show(this);else if("界面与字体大小".equals(state.getString("screen")))DisplaySettings.show(this);else if("应用图标".equals(state.getString("screen")))ProviderAppearance.show(this);else if("AI 配置".equals(state.getString("screen")))AiSettings.show(this);}else{String initial=prefs.getString("start_page","today");if(initial.equals("manage"))PlanHub.show(this);else if(!initial.equals("today")){tab=initial;home();}if(!Onboarding.pending(prefs)&&!Onboarding.restoring(state))handleIntent(getIntent());}
+        if(Onboarding.pending(prefs)||Onboarding.restoring(state))Onboarding.open(this,state!=null&&Onboarding.restoring(state)?state.getBoolean("guide_first",false):Onboarding.pending(prefs),state);
     }
-    protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);handleIntent(i);}
+    void onboardingFinished(boolean firstLaunch,boolean configureCloud){
+        onboarding=null;tab=HomeNavigation.first(visibleNavigationMask());weekPreview=false;home();
+        if(firstLaunch)handleIntent(getIntent());
+        if(configureCloud)new SettingsPanels(this).account();
+    }
+    protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);if(onboarding==null)handleIntent(i);}
     private void handleIntent(Intent i){try{String command=i.getStringExtra("dayflow_screen_ticket");if(command!=null){CommandScreen.launch(this,command);return;}if((Intent.ACTION_VIEW.equals(i.getAction())||Intent.ACTION_EDIT.equals(i.getAction()))&&i.getData()!=null){importMarkdown(i.getData(),true,i.getFlags());return;}if(Intent.ACTION_SEND.equals(i.getAction())&&i.hasExtra(Intent.EXTRA_STREAM)){Uri file=i.getParcelableExtra(Intent.EXTRA_STREAM);if(file!=null&&MarkdownDocuments.isMarkdown(this,file)){importMarkdown(file,true,i.getFlags());return;}}if(i.hasExtra("record_id")){JSONObject r=Data.get(this).resolve(i.getStringExtra("record_id"),i.getStringExtra("series_id"),i.getStringExtra("occurrence_date"));if(r!=null&&!r.optBoolean("deleted")){if(!openSource(r))detail(r);}}else if(Intent.ACTION_SEND.equals(i.getAction())){JSONObject r=Data.make("inbox","通知 / 邮件").put("content",i.getStringExtra(Intent.EXTRA_TEXT));Data.get(this).save(r);changed();detail(r);}else if(i.getBooleanExtra("quick",false))edit(Data.make(i.getStringExtra("quick_kind")==null?"note":i.getStringExtra("quick_kind"),""));else if(i.getBooleanExtra("check_update",false))new SettingsPanels(this).updates();}catch(Exception e){message(e.getMessage());}}
-    protected void onSaveInstanceState(Bundle state){state.putInt("schedule_scroll",scheduleScroll==null?scheduleScrollY:scheduleScroll.getScrollY());state.putString("tab",tab);state.putString("date",selected.toString());state.putString("week_start",weekStart.toString());state.putBoolean("day",dayView);state.putBoolean("week_preview",weekPreview);state.putString("screen",screenName);
+    protected void onSaveInstanceState(Bundle state){if(onboarding!=null)onboarding.save(state);state.putInt("schedule_scroll",scheduleScroll==null?scheduleScrollY:scheduleScroll.getScrollY());state.putString("tab",tab);state.putString("date",selected.toString());state.putString("week_start",weekStart.toString());state.putBoolean("day",dayView);state.putBoolean("week_preview",weekPreview);state.putString("screen",screenName);
         if(moreFeaturesTab!=null){
             state.putString("more_features_tab",moreFeaturesTab);
             state.putString("more_features_query",moreFeaturesQuery);
@@ -100,13 +108,13 @@ public final class MainActivity extends AppCompatActivity {
             state.putInt("more_features_schedule_scroll",moreFeaturesScheduleScroll);
         }
         if(noteState!=null){state.putString("editor_file",EditorSnapshot.write(this,noteState.draft()));if(noteState.externalUri()!=null){state.putString("md_uri",noteState.externalUri().toString());state.putBoolean("md_writable",noteState.externalWritable());}}else if(editorState!=null)state.putString("editor_file",EditorSnapshot.write(this,editorState.draft()));super.onSaveInstanceState(state);}
-    protected void onResume(){super.onResume();if(Updates.resumePending(this))return;SyncJob.configure(this);FocusTimer.restore(this);if(editorState==null&&noteState==null&&backAction==null&&"agenda".equals(tab))home();backdrop.active(true);ReminderReceiver.refresh(this);if(prefs.getBoolean("auto_location",false)&&checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED&&System.currentTimeMillis()-prefs.getLong("weather_updated",0)>6L*3600000)locationWeather.request();}
+    protected void onResume(){super.onResume();if(DisplaySettings.resumeTrial(this))return;if(Updates.resumePending(this))return;SyncJob.configure(this);FocusTimer.restore(this);if(editorState==null&&noteState==null&&backAction==null&&"agenda".equals(tab))home();backdrop.active(true);ReminderReceiver.refresh(this);if(prefs.getBoolean("auto_location",false)&&checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED&&System.currentTimeMillis()-prefs.getLong("weather_updated",0)>6L*3600000)locationWeather.request();}
     protected void onPause(){if(noteState!=null)noteState.keepDraft();backdrop.active(false);locationWeather.cancel();super.onPause();}
-    protected void onDestroy(){worker.shutdown();backdrop.release();super.onDestroy();}
+    protected void onDestroy(){DisplaySettings.dismissTrial(this);worker.shutdown();backdrop.release();super.onDestroy();}
     public void message(String value){if(value!=null&&!isDestroyed())Snackbar.make(shell,value,Snackbar.LENGTH_LONG).show();}
     public interface Work{String run()throws Exception;}
     public void job(Work work,Runnable after){job(work,after,null);}
-    public void job(Work work,Runnable after,java.util.function.Consumer<String> failed){if(busy){message("正在处理，请稍候");return;}busy=true;long origin=screenGeneration;if(progress!=null)progress.setVisibility(View.VISIBLE);worker.execute(()->{String result;boolean success;try{result=work.run();success=true;}catch(Exception e){result=e.getMessage()==null?"操作失败":e.getMessage();success=false;}String value=result;boolean ok=success;runOnUiThread(()->{busy=false;if(isDestroyed())return;if(progress!=null)progress.setVisibility(View.GONE);if(ok){changed();if(after!=null&&origin==screenGeneration)after.run();}else if(failed!=null&&origin==screenGeneration)failed.accept(value);message(value);});});}
+    public void job(Work work,Runnable after,java.util.function.Consumer<String> failed){if(busy){message("正在处理，请稍候");return;}busy=true;long origin=screenGeneration;if(progress!=null)progress.setVisibility(View.VISIBLE);worker.execute(()->{String result;boolean success;try{result=work.run();success=true;}catch(Exception e){Diagnostics.record(this,"background-operation",e);result=e.getMessage()==null?"操作失败":e.getMessage();success=false;}String value=result;boolean ok=success;runOnUiThread(()->{busy=false;if(isDestroyed())return;if(progress!=null)progress.setVisibility(View.GONE);if(ok){changed();if(after!=null&&origin==screenGeneration)after.run();}else if(failed!=null&&origin==screenGeneration)failed.accept(value);message(value);});});}
     public void changed(){AgendaWidget.refresh(this);ReminderReceiver.refresh(this);}
     private void ensureScaffold(){if(content!=null)return;
         FrameLayout body=new FrameLayout(this);shell.addView(body,new LinearLayout.LayoutParams(-1,0,1));content=new FrameLayout(this);body.addView(content,new FrameLayout.LayoutParams(-1,-1));progress=new LinearProgressIndicator(this);progress.setIndeterminate(true);progress.setVisibility(View.GONE);body.addView(progress,new FrameLayout.LayoutParams(-1,Ui.dp(this,3),Gravity.TOP));
@@ -115,8 +123,8 @@ public final class MainActivity extends AppCompatActivity {
         assistantRowLayout.setMargins(Ui.dp(this,16),Ui.dp(this,4),Ui.dp(this,16),0);
         shell.addView(agentRow,assistantRowLayout);
         agentBar=Ui.button(this,"问序言 AI",true,()->AssistantPlugin.open(this));
-        agentBar.setIconResource(android.R.drawable.ic_btn_speak_now);
-        agentRow.addView(agentBar,new LinearLayout.LayoutParams(0,-1,1));
+        FrameLayout aiContainer=new FrameLayout(this);aiContainer.addView(agentBar,new FrameLayout.LayoutParams(-1,-1));agentBar.setPadding(Ui.dp(this,48),0,Ui.dp(this,14),0);android.widget.ImageButton mic=new android.widget.ImageButton(this);mic.setImageResource(android.R.drawable.ic_btn_speak_now);mic.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.color(this,com.google.android.material.R.attr.colorOnPrimary)));mic.setBackgroundColor(Color.TRANSPARENT);aiContainer.addView(mic,new FrameLayout.LayoutParams(Ui.dp(this,48),Ui.dp(this,48),Gravity.START|Gravity.CENTER_VERTICAL));VoiceBridge.bind(this,mic,text->AssistantPlugin.draft(this,text),value->agentBar.setText(value));
+        agentRow.addView(aiContainer,new LinearLayout.LayoutParams(0,-1,1));
         com.google.android.material.button.MaterialButton floating=Ui.iconButton(this,"",R.drawable.ic_floating_ai,false,()->FloatingAssistant.toggle(this));
         floating.setStrokeWidth(0);floating.setContentDescription("悬浮助手");floating.setTooltipText("悬浮助手");
         agentBar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
@@ -125,47 +133,45 @@ public final class MainActivity extends AppCompatActivity {
                 LiquidGlass.tint(Ui.surface(this),202)));
         LinearLayout.LayoutParams floatingLayout=new LinearLayout.LayoutParams(Ui.dp(this,52),-1);
         floatingLayout.setMarginStart(Ui.dp(this,8));agentRow.addView(floating,floatingLayout);
-        navigationBar=new BottomNavigationView(this);navigationBar.setItemHorizontalTranslationEnabled(false);navigationBar.setItemActiveIndicatorEnabled(true);navigationBar.setLabelVisibilityMode(BottomNavigationView.LABEL_VISIBILITY_LABELED);String[] labels={"今天","笔记","日程","收集箱","设置"};int[] icons={R.drawable.ic_calendar,R.drawable.ic_note,R.drawable.ic_schedule,R.drawable.ic_inbox,R.drawable.ic_settings};for(int n=0;n<labels.length;n++)navigationBar.getMenu().add(0,100+n,n,labels[n]).setIcon(icons[n]);navigationBar.setPadding(0,0,0,0);navigationBar.setMinimumHeight(Ui.dp(this,64));navigationBar.setBackgroundColor(Color.TRANSPARENT);navigationBar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.TRANSPARENT));navigationBar.setElevation(0);navigationBar.setItemIconSize(Ui.dp(this,27));navigationBar.setItemIconTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{Ui.primary(this),Ui.muted(this)}));getWindow().setNavigationBarColor(Color.TRANSPARENT);if(Build.VERSION.SDK_INT>=29)getWindow().setNavigationBarContrastEnforced(false);LinearLayout.LayoutParams navLayout=new LinearLayout.LayoutParams(-1,-2);
+        navigationBar=new BottomNavigationView(this);navigationBar.setItemHorizontalTranslationEnabled(false);navigationBar.setItemActiveIndicatorEnabled(true);navigationBar.setLabelVisibilityMode(BottomNavigationView.LABEL_VISIBILITY_LABELED);String[] labels={UiStyle.neo(this)?"今日":"今天","笔记","日程","收集箱","设置"};int[] icons={R.drawable.ic_calendar,R.drawable.ic_note,R.drawable.ic_schedule,R.drawable.ic_inbox,R.drawable.ic_settings};refreshNavigation();navigationBar.setPadding(0,0,0,0);navigationBar.setMinimumHeight(Ui.dp(this,64));navigationBar.setBackgroundColor(Color.TRANSPARENT);navigationBar.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.TRANSPARENT));navigationBar.setElevation(0);navigationBar.setItemIconSize(Ui.dp(this,27));navigationBar.setItemIconTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{Ui.primary(this),Ui.muted(this)}));getWindow().setNavigationBarColor(Color.TRANSPARENT);if(Build.VERSION.SDK_INT>=29)getWindow().setNavigationBarContrastEnforced(false);LinearLayout.LayoutParams navLayout=new LinearLayout.LayoutParams(-1,-2);
         navLayout.setMargins(Ui.dp(this,12),Ui.dp(this,5),Ui.dp(this,12),Ui.dp(this,4));
         navigationBar.setBackgroundTintList(null);
         navigationBar.setBackground(LiquidGlass.panel(this,26));
         navigationBar.setItemActiveIndicatorEnabled(false);
-        navigationBar.setItemBackground(LiquidGlass.navSelection(this));
+        navigationBar.setItemBackground((android.graphics.drawable.Drawable)null);
         navigationBar.setItemTextColor(navigationBar.getItemIconTintList());
-        for(int i=0;i<labels.length;i++)navigationBar.setItemOnTouchListener(100+i,navIconTouch());
         shell.addView(navigationBar,navLayout);
-        navigationBar.setOnItemSelectedListener(item->{if(selectingTab)return true;String next=new String[]{"agenda","note","course","inbox","settings"}[item.getItemId()-100];if(next.equals(tab)&&!weekPreview)return true;int old=java.util.Arrays.asList("agenda","note","course","inbox","settings").indexOf(tab);transitionDirection=java.util.Arrays.asList("agenda","note","course","inbox","settings").indexOf(next)>=old?1:-1;weekPreview=false;View focus=getCurrentFocus();if(focus!=null){focus.clearFocus();((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);}tab=next;renderHome();return true;});navigationBar.setOnItemReselectedListener(item->{});
-    }
-    private View.OnTouchListener navIconTouch(){
-        return new View.OnTouchListener(){
-            private final android.graphics.Rect target=new android.graphics.Rect();
-            private boolean ignoreGesture;
+        navigationBar.setOnItemSelectedListener(item->{if(selectingTab)return true;if(item.getItemId()==106){showNavigationOverflow();return false;}int index=item.getItemId()-100;if(index<0||index>=HomeNavigation.TABS.length)return false;String next=HomeNavigation.TABS[index];if(next.equals(tab))return true;int old=HomeNavigation.pages(visibleNavigationMask()).indexOf(tab);transitionDirection=HomeNavigation.pages(visibleNavigationMask()).indexOf(next)>=old?1:-1;weekPreview=next.equals("week");View focus=getCurrentFocus();if(focus!=null){focus.clearFocus();((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);}tab=next;handlingNavigationTap=true;try{renderHome();}finally{handlingNavigationTap=false;}return true;});navigationBar.setOnItemReselectedListener(item->{if(item.getItemId()==106)showNavigationOverflow();});
 
-            @Override public boolean onTouch(View view,MotionEvent event){
-                if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
-                    View icon=view.findViewById(com.google.android.material.R.id.navigation_bar_item_icon_view);
-                    if(icon==null)return false;
-                    icon.getDrawingRect(target);
-                    ViewGroup item=(ViewGroup)view;
-                    item.offsetDescendantRectToMyCoords(icon,target);
-                    int half=Math.max(Ui.dp(MainActivity.this,24),target.width()/2);
-                    int x=target.centerX(),y=target.centerY();
-                    target.set(x-half,y-half,x+half,y+half);
-                    View labels=item.findViewById(com.google.android.material.R.id.navigation_bar_item_labels_group);
-                    if(labels!=null&&labels.getVisibility()==View.VISIBLE){
-                        android.graphics.Rect labelBounds=new android.graphics.Rect();
-                        labels.getDrawingRect(labelBounds);
-                        item.offsetDescendantRectToMyCoords(labels,labelBounds);
-                        target.bottom=Math.min(target.bottom,labelBounds.top);
-                    }
-                    ignoreGesture=!target.contains((int)event.getX(),(int)event.getY());
-                }
-                return ignoreGesture;
-            }
-        };
+    }
+    private void showNavigationOverflow(){android.widget.PopupMenu menu=new android.widget.PopupMenu(this,navigationBar);if(prefs.getBoolean("home_notes",false))menu.getMenu().add("笔记").setOnMenuItemClickListener(i->{openPage("note");return true;});if(prefs.getBoolean("home_inbox",false))menu.getMenu().add("收集箱").setOnMenuItemClickListener(i->{openPage("inbox");return true;});menu.show();}
+    LinearLayout neoPage(){scaffold("Neo",null,true);return fixedWeekForm();}
+    LinearLayout timetablePage(){scaffold("今天",null,true);return fixedWeekForm();}
+    void showTimetableDay(LocalDate date){selected=date;tab="agenda";weekPreview=false;renderHome();}
+    private int visibleNavigationMask(){if(UiStyle.neo(this))return HomeNavigation.WEEK|1;return HomeNavigation.mask(prefs.getBoolean("home_today",true),prefs.getBoolean("home_notes",false),prefs.getBoolean("home_schedule",true),prefs.getBoolean("home_inbox",false));}
+    private boolean homeTabVisible(int index){return (visibleNavigationMask()&(1<<index))!=0;}
+    void refreshNavigation(){
+        if(navigationBar==null)return;
+        int mask=visibleNavigationMask();
+        if(mask==navigationMask)return;
+        navigationMask=mask;selectingTab=true;
+        try{
+            navigationBar.getMenu().clear();
+            String[] labels={UiStyle.neo(this)?"今日":"今天","笔记","日程","收集箱","设置","周预览"};boolean overflow=HomeNavigation.pages(mask).size()>5;
+            for(String page:HomeNavigation.pages(mask)){int n=HomeNavigation.itemId(page)-100;if(overflow&&(n==1||n==3))continue;if(overflow&&n==4)navigationBar.getMenu().add(0,106,4,"更多").setIcon(R.drawable.ic_more).setCheckable(true);navigationBar.getMenu().add(0,100+n,HomeNavigation.pages(mask).indexOf(page),labels[n]).setIcon(NavigationIcons.icon(this,n)).setCheckable(true);}
+            if(!handlingNavigationTap)syncNavigationSelection();
+        }finally{selectingTab=false;}
+    }
+    private void syncNavigationSelection(){
+        if(navigationBar==null||handlingNavigationTap)return;
+        int id=HomeNavigation.itemId(tab);if(navigationBar.getMenu().findItem(id)==null&&(tab.equals("note")||tab.equals("inbox"))&&navigationBar.getMenu().findItem(106)!=null)id=106;
+        if(navigationBar.getMenu().findItem(id)!=null&&navigationBar.getSelectedItemId()!=id){
+            boolean previous=selectingTab;selectingTab=true;
+            try{navigationBar.setSelectedItemId(id);}finally{selectingTab=previous;}
+        }
     }
 
-    private void scaffold(String name,Runnable back,boolean navigation){ensureScaffold();if(scheduleScroll!=null){scheduleScrollY=scheduleScroll.getScrollY();scheduleScroll=null;}screenGeneration++;screenName=name;backAction=back==null&&navigation&&moreFeaturesTab!=null?this::home:back;rootPage=navigation;content.removeAllViews();navigationBar.setVisibility(navigation?View.VISIBLE:View.GONE);agentRow.setVisibility(navigation?View.VISIBLE:View.GONE);if(navigation){selectingTab=true;navigationBar.setSelectedItemId(100+java.util.Arrays.asList("agenda","note","course","inbox","settings").indexOf(tab));selectingTab=false;}ViewCompat.requestApplyInsets(shell);content.animate().cancel();if(android.animation.ValueAnimator.areAnimatorsEnabled()&&!prefs.getBoolean("reduce_motion",false)){content.setAlpha(.48f);content.setTranslationX(Ui.dp(this,transitionDirection==0?0:30*transitionDirection));content.setTranslationY(Ui.dp(this,transitionDirection==0?10:0));content.setScaleX(.978f);content.setScaleY(.978f);content.animate().setStartDelay(0).alpha(1).translationX(0).translationY(0).scaleX(1).scaleY(1).setInterpolator(new android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).setDuration(320).start();}else{content.setAlpha(1);content.setTranslationX(0);content.setTranslationY(0);content.setScaleX(1);content.setScaleY(1);}transitionDirection=0;}
+    private void scaffold(String name,Runnable back,boolean navigation){ensureScaffold();int index=java.util.Arrays.asList(HomeNavigation.TABS).indexOf(tab);if(navigation&&index>=0&&!homeTabVisible(index)){navigation=false;if(back==null)back=()->{tab="agenda";if(!homeTabVisible(0))tab="settings";home();};}if(scheduleScroll!=null){scheduleScrollY=scheduleScroll.getScrollY();scheduleScroll=null;}screenGeneration++;screenName=name;backAction=back==null&&navigation&&moreFeaturesTab!=null?this::home:back;rootPage=navigation;content.removeAllViews();navigationBar.setVisibility(navigation?View.VISIBLE:View.GONE);agentRow.setVisibility(navigation&&!UiStyle.neo(this)?View.VISIBLE:View.GONE);if(navigation)syncNavigationSelection();ViewCompat.requestApplyInsets(shell);content.animate().cancel();if(android.animation.ValueAnimator.areAnimatorsEnabled()&&!prefs.getBoolean("reduce_motion",false)){content.setAlpha(.48f);content.setTranslationX(Ui.dp(this,transitionDirection==0?0:30*transitionDirection));content.setTranslationY(Ui.dp(this,transitionDirection==0?10:0));content.setScaleX(.978f);content.setScaleY(.978f);content.animate().setStartDelay(0).alpha(1).translationX(0).translationY(0).scaleX(1).scaleY(1).setInterpolator(new android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).setDuration(320).start();}else{content.setAlpha(1);content.setTranslationX(0);content.setTranslationY(0);content.setScaleX(1);content.setScaleY(1);}transitionDirection=0;}
     public LinearLayout fullPage(String title,Runnable back){scaffold(title,back,false);ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);LinearLayout form=Ui.padded(this);scroll.addView(form);content.addView(scroll,new FrameLayout.LayoutParams(-1,-1));return form;}
     public LinearLayout editorPage(String title,Runnable back){scaffold(title,back,false);LinearLayout page=Ui.column(this);content.addView(page,new FrameLayout.LayoutParams(-1,-1));return page;}
     public void exportMarkdown(JSONObject record){try{record=Data.get(this).expanded(record);java.nio.file.Files.write(new File(getCacheDir(),"note-export.md").toPath(),MarkdownFiles.markdown(record).getBytes(java.nio.charset.StandardCharsets.UTF_8));startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("text/markdown").putExtra(Intent.EXTRA_TITLE,MarkdownFiles.filename(record)),107);}catch(Exception e){message(e.getMessage());}}
@@ -176,9 +182,9 @@ public final class MainActivity extends AppCompatActivity {
             CommandScreen.show(this,moreFeaturesQuery,moreFeaturesScroll);
         }else renderHome();
     }
-    private void renderHome(){editorState=null;noteState=null;String name=tab.equals("agenda")?"今天":tab.equals("note")?"笔记":tab.equals("inbox")?"收集箱":tab.equals("course")?"日程":"设置";scaffold(name,null,true);try{LinearLayout hot=Ui.column(this);if(HotUpdates.render(this,tab,hot)){homeForm().addView(hot);return;}if(tab.equals("agenda")||tab.equals("course"))schedule();else if(tab.equals("settings"))new SettingsPanels(this).root(homeForm());else recordList();}catch(Exception e){message("读取失败："+e.getMessage());}}
+    private void renderHome(){if(navigationBar!=null)refreshNavigation();editorState=null;noteState=null;if(UiStyle.neo(this)&&tab.equals("agenda")){NeoHome.show(this,weekStart);return;}if(UiStyle.timetable(this)&&tab.equals("agenda")){TimetableHome.show(this,selected);return;}String name=tab.equals("week")?"周预览":tab.equals("agenda")?"今天":tab.equals("note")?"笔记":tab.equals("inbox")?"收集箱":tab.equals("course")?"日程":"设置";scaffold(name,null,true);try{LinearLayout hot=Ui.column(this);if(HotUpdates.render(this,tab,hot)){homeForm().addView(hot);return;}if(tab.equals("agenda")||tab.equals("course")||tab.equals("week"))schedule();else if(tab.equals("settings"))new SettingsPanels(this).root(homeForm());else recordList();}catch(Exception e){message("读取失败："+e.getMessage());}}
     private void schedule()throws Exception{
-        LinearLayout page=homeForm();
+        LinearLayout page=tab.equals("week")?fixedWeekForm():homeForm();
         if(tab.equals("course")){
             ScheduleScreen.show(this,page,selected);
             ScrollView scroll=(ScrollView)page.getParent();scheduleScroll=scroll;
@@ -186,17 +192,22 @@ public final class MainActivity extends AppCompatActivity {
             if(position>0)scroll.post(()->{if(scheduleScroll==scroll)scroll.scrollTo(0,position);});
             return;
         }
-        if(weekPreview){WeekPreview.show(this,page,weekStart,date->{weekStart=date;transitionDirection=1;renderHome();},this::renderHome);return;}
+        if(tab.equals("week")){if(UiStyle.neo(this))page.setPadding(page.getPaddingLeft(),page.getPaddingTop(),page.getPaddingRight(),Ui.dp(this,64));WeekPreview.show(this,page,weekStart,date->{weekStart=WeekOptions.first(this,date);transitionDirection=1;renderHome();},this::renderHome);if(UiStyle.neo(this))NeoHome.attachAI(this,page);return;}
         LocalDate today=LocalDate.now();LinearLayout hero=Ui.padded(this);
         TextView date=Ui.text(this,today.format(DateTimeFormatter.ofPattern("M月d日 EEEE",Locale.CHINA)),27,true);
         hero.addView(date);
         String weather=OpenWeatherSources.cached(this,"");
         hero.addView(Ui.help(this,ChineseDates.description(today)+(weather.isEmpty()?"":" · "+weather)));
+        hero.addView(new DayTimeline(this),new LinearLayout.LayoutParams(-1,-2));
         page.addView(hero);
         LinearLayout actions=Ui.row(this);page.addView(actions);Ui.cell(this,actions,Ui.button(this,"＋ 新建待办",true,()->newRecord("task")));Ui.cell(this,actions,Ui.button(this,"周预览",false,()->showWeek(today)));
         if(!prefs.getBoolean("reduce_motion",false)){Ui.enter(actions,1);}DailyTasks.today(this,page);
     }
-    void showWeek(LocalDate start){weekStart=start;weekPreview=true;tab="agenda";transitionDirection=1;renderHome();}
+    void changeUiStyle(String style){if(!app.planaloud.ui.DisplayTrial.begin(this,prefs.getInt("ui_scale",100),prefs.getInt("font_scale",100),style)){message("界面风格未改变");return;}tab="agenda";weekPreview=false;moreFeaturesTab=null;screenName="";recreate();}
+    void neoViewChanged(){home();}
+    void weekOptionsChanged(LocalDate anchor){weekStart=WeekOptions.first(this,anchor);home();}
+    void moveDisplayedWeek(LocalDate date){weekStart=WeekOptions.first(this,date);home();}
+    void showWeek(LocalDate start){weekStart=WeekOptions.first(this,start);weekPreview=true;tab="week";transitionDirection=1;renderHome();}
     void openPage(String name){tab=name;weekPreview=false;renderHome();}
     void exportAllNotes(){startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/zip").putExtra(Intent.EXTRA_TITLE,"DayFlow-notes-"+LocalDate.now()+".zip"),109);}
     public void tasks(){taskBoard(0);}
@@ -211,7 +222,7 @@ public final class MainActivity extends AppCompatActivity {
             Ui.cell(this,review,Ui.iconButton(this,"回收站",android.R.drawable.ic_menu_delete,false,()->InboxReview.trash(this,0)));}
         final JSONArray[] rows={notes?Data.get(this).notes(""):Data.get(this).list(tab,200)};TextView status=Ui.help(this,notes?"支持 Markdown · 置顶笔记优先 · 文字与附图一起同步":"");
         TextInputEditText search=notes?Ui.field(this,page,"搜索笔记标题或正文","",false):null;page.addView(status);
-        RecyclerView list=new RecyclerView(this);list.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this,getResources().getConfiguration().screenWidthDp>=340&&getResources().getConfiguration().fontScale<1.35f?2:1));RecyclerView.Adapter<RecordHolder> adapter=new RecyclerView.Adapter<RecordHolder>(){public RecordHolder onCreateViewHolder(ViewGroup p,int type){MaterialCardView card=Ui.card(MainActivity.this);RecyclerView.LayoutParams lp=new RecyclerView.LayoutParams(-1,-2);lp.setMargins(Ui.dp(MainActivity.this,4),Ui.dp(MainActivity.this,5),Ui.dp(MainActivity.this,4),Ui.dp(MainActivity.this,5));card.setLayoutParams(lp);return new RecordHolder(card);}public void onBindViewHolder(RecordHolder h,int position){try{JSONObject r=rows[0].getJSONObject(position);h.card.removeAllViews();Ui.priority(h.card,r);LinearLayout body=recordContents(r);if(r.optBoolean("pinned"))body.addView(Ui.help(MainActivity.this,"已置顶"));h.card.addView(body);h.card.setOnClickListener(v->{if(notes||!openSource(r))detail(r);});h.card.setOnLongClickListener(v->{recordMenu(h.card,r);return true;});}catch(Exception ignored){}}public int getItemCount(){return rows[0].length();}};list.setAdapter(adapter);page.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+        RecyclerView list=new RecyclerView(this);list.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this,Ui.columns(this)));RecyclerView.Adapter<RecordHolder> adapter=new RecyclerView.Adapter<RecordHolder>(){public RecordHolder onCreateViewHolder(ViewGroup p,int type){MaterialCardView card=Ui.card(MainActivity.this);RecyclerView.LayoutParams lp=new RecyclerView.LayoutParams(-1,-2);lp.setMargins(Ui.dp(MainActivity.this,4),Ui.dp(MainActivity.this,5),Ui.dp(MainActivity.this,4),Ui.dp(MainActivity.this,5));card.setLayoutParams(lp);return new RecordHolder(card);}public void onBindViewHolder(RecordHolder h,int position){try{JSONObject r=rows[0].getJSONObject(position);h.card.removeAllViews();Ui.priority(h.card,r);LinearLayout body=recordContents(r);if(r.optBoolean("pinned"))body.addView(Ui.help(MainActivity.this,"已置顶"));h.card.addView(body);h.card.setOnClickListener(v->{if(notes||!openSource(r))detail(r);});h.card.setOnLongClickListener(v->{recordMenu(h.card,r);return true;});}catch(Exception ignored){}}public int getItemCount(){return rows[0].length();}};list.setAdapter(adapter);page.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         if(search!=null)search.addTextChangedListener(new android.text.TextWatcher(){final Handler handler=new Handler(Looper.getMainLooper());Runnable pending;public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence value,int start,int before,int count){if(pending!=null)handler.removeCallbacks(pending);String query=value.toString();pending=()->{if(isDestroyed()||!search.isAttachedToWindow())return;try{rows[0]=Data.get(MainActivity.this).notes(query);adapter.notifyDataSetChanged();status.setText(rows[0].length()==0?"没有找到笔记":"显示 "+rows[0].length()+" 条 · 置顶优先 · 正文与附图一起同步");}catch(Exception e){message(e.getMessage());}};handler.postDelayed(pending,200);}public void afterTextChanged(android.text.Editable value){}});
     }
     private static final class RecordHolder extends RecyclerView.ViewHolder{final MaterialCardView card;RecordHolder(MaterialCardView c){super(c);card=c;}}
@@ -294,7 +305,7 @@ public final class MainActivity extends AppCompatActivity {
     private void addRecord(LinearLayout parent,JSONObject r){MaterialCardView card=Ui.card(this);Ui.priority(card,r);card.addView(recordContents(r));card.setOnClickListener(v->detail(r));parent.addView(card);}
     public void editBasic(JSONObject r){editorState=null;noteState=new NoteEditor(this,r,false);}
     public void edit(JSONObject r){if(r.optBoolean("_dayflow_preview")){try{edit(Data.get(this).expanded(r));}catch(Exception e){message(e.getMessage());}return;}if("note".equals(r.optString("kind"))){editorState=null;noteState=new NoteEditor(this,r);}else{noteState=null;editorState=new EditorPanel(this,r);}}
-    public void detail(JSONObject r){if(r.optBoolean("_dayflow_preview")){try{detail(Data.get(this).expanded(r));}catch(Exception e){message(e.getMessage());}return;}editorState=null;noteState=null;if("note".equals(r.optString("kind"))){notePreview(r);return;}LinearLayout form=fullPage(r.optString("kind").equals("inbox")?"待确认通知":"事项详情",this::home);form.addView(Ui.text(this,r.optString("title"),26,true));form.addView(Ui.help(this,PlanTime.label(r)+" · "+TaskTypes.label(this,r.optString("type_id"))+(PlanTime.cancelled(r)?" · 已取消":"")));String countdown=PlanTime.countdown(r,LocalDateTime.now());if(!countdown.isEmpty())form.addView(Ui.help(this,countdown));String planning=PlanTime.planning(r);if(!planning.isEmpty())form.addView(Ui.help(this,planning));if(Recurrences.series(r))form.addView(Ui.help(this,"这是重复系列，编辑会影响尚未单独修改的各次安排。"));String date=r.optString("start_at");form.addView(Ui.help(this,date.isEmpty()?r.optString("time_hint","时间待定"):date.replace("T"," ")+(!r.optString("end_at").isEmpty()?" → "+r.optString("end_at").replace("T"," "):"")));if(!r.optString("location").isEmpty())form.addView(Ui.button(this,r.optString("location")+" · 高德地图",false,()->MapLinks.open(this,r.optString("location"))));
+    public void detail(JSONObject r){if(UiStyle.neo(this)){WeekActions.open(this,r);return;}if(r.optBoolean("_dayflow_preview")){try{detail(Data.get(this).expanded(r));}catch(Exception e){message(e.getMessage());}return;}editorState=null;noteState=null;if("note".equals(r.optString("kind"))){notePreview(r);return;}LinearLayout form=fullPage(r.optString("kind").equals("inbox")?"待确认通知":"事项详情",this::home);form.addView(Ui.text(this,r.optString("title"),26,true));form.addView(Ui.help(this,PlanTime.label(r)+" · "+TaskTypes.label(this,r.optString("type_id"))+(PlanTime.cancelled(r)?" · 已取消":"")));String countdown=PlanTime.countdown(r,LocalDateTime.now());if(!countdown.isEmpty())form.addView(Ui.help(this,countdown));String planning=PlanTime.planning(r);if(!planning.isEmpty())form.addView(Ui.help(this,planning));if(Recurrences.series(r))form.addView(Ui.help(this,"这是重复系列，编辑会影响尚未单独修改的各次安排。"));String date=r.optString("start_at");form.addView(Ui.help(this,date.isEmpty()?r.optString("time_hint","时间待定"):date.replace("T"," ")+(!r.optString("end_at").isEmpty()?" → "+r.optString("end_at").replace("T"," "):"")));if(!r.optString("location").isEmpty())form.addView(Ui.button(this,r.optString("location")+" · 高德地图",false,()->MapLinks.open(this,r.optString("location"))));
         addRecordImage(form,r);
         TextView body=Ui.text(this,r.optString("content"),16,false);
         body.setTextIsSelectable(true);body.setPadding(0,Ui.dp(this,16),0,Ui.dp(this,16));form.addView(body);
@@ -327,17 +338,19 @@ public final class MainActivity extends AppCompatActivity {
     public void notificationPermission(){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},200);}
     public void reminderPermission(){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingExactAlarm=true;requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},200);}else exactPermission();}
     public void exactPermission(){if(Build.VERSION.SDK_INT>=31&&!AlarmSound.exact(this))try{startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:"+getPackageName())));}catch(Exception e){message("请在系统设置中允许闹钟与提醒，否则提醒可能延迟");}}
-    public LinearLayout homeForm(){ScrollView scroll=new ScrollView(this);LinearLayout form=Ui.padded(this);scroll.addView(form);content.addView(scroll);return form;}
+    private LinearLayout fixedWeekForm(){LinearLayout page=Ui.column(this);page.setPadding(Ui.dp(this,8),Ui.dp(this,4),Ui.dp(this,8),0);page.setTag("classic-week-page");content.addView(page,new FrameLayout.LayoutParams(-1,-1));return page;}
+    public LinearLayout homeForm(){ScrollView scroll=new ScrollView(this);LinearLayout form=Ui.padded(this);scroll.addView(form);content.addView(scroll);if(UiStyle.neo(this))NeoHome.returnBar(this,form);return form;}
     public void checkUpdates(){if(busy)return;busy=true;worker.execute(()->{try{JSONObject info=Updates.check(this);runOnUiThread(()->{busy=false;if(isDestroyed())return;if(info==null)message("当前已是最新版本");else new SettingsPanels(this).showUpdate(info);});}catch(Exception e){runOnUiThread(()->{busy=false;message(e.getMessage());});}});}
     public void pickFile(int code,String mime){startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime),code);}
     public void refreshBackdrop(){backdrop.load();}
     public void refreshWeatherUi(){if(editorState!=null||noteState!=null)return;if("位置与天气".equals(screenName))new SettingsPanels(this).weather();else if(backAction==null&&"agenda".equals(tab))home();}
     public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==201){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED)locationWeather.request();else{prefs.edit().putBoolean("auto_location",false).apply();message("未授权位置，可继续使用手动位置与离线功能");}}else if(request==202){message(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED?"已授权新短信识别":"未授权直接接收短信，可使用通知访问或手动粘贴");}else if(request==200){if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED){if(pendingExactAlarm){pendingExactAlarm=false;exactPermission();}}else{pendingExactAlarm=false;message("通知权限未开启，事项仍已保存");}}}
-    protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(code==AssistantPlugin.REQUEST){boolean timetable=prefs.getBoolean("assistant_timetable_staged",false);prefs.edit().remove("assistant_timetable_staged").apply();AssistantPlugin.close(this);changed();if(data!=null&&data.hasExtra("dayflow_open_command_ticket"))CommandScreen.launch(this,data.getStringExtra("dayflow_open_command_ticket"));else if(data!=null&&data.hasExtra("dayflow_open_command_page"))CommandScreen.open(this,data.getStringExtra("dayflow_open_command_page"));else if(timetable)new TimetableCapture(this,null);else if(data!=null&&data.getBooleanExtra("dayflow_open_inbox",false))showInbox();else if(data!=null&&data.getBooleanExtra("dayflow_open_schedule",false)){LocalDate day=LocalDate.now();try{day=LocalDate.parse(data.getStringExtra("dayflow_open_date"));}catch(Exception ignored){}openSchedule(day);}else home();if(prefs.getBoolean("assistant_needs_notification",false)){boolean exact=prefs.getBoolean("assistant_needs_exact_alarm",false);prefs.edit().remove("assistant_needs_notification").remove("assistant_needs_exact_alarm").apply();if(exact)reminderPermission();else notificationPermission();}return;}if(code==DocumentPlugins.REQUEST){DocumentPlugins.result(this,result,data);return;}if(code==114){if(result==RESULT_OK&&data!=null)ExtensionHub.ocrResult(this,data);else ExtensionHub.cleanupOcr(this);return;}if(result!=RESULT_OK||data==null||data.getData()==null)return;Uri uri=data.getData();
-        if(code==101)job(()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){Data.get(this).writeExport(out);}return "已导出同步文件";},null);
+    protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(code==AssistantPlugin.REQUEST){boolean timetable=prefs.getBoolean("assistant_timetable_staged",false);prefs.edit().remove("assistant_timetable_staged").apply();AssistantPlugin.close(this);changed();if(data!=null&&data.hasExtra("dayflow_open_command_ticket"))CommandScreen.launch(this,data.getStringExtra("dayflow_open_command_ticket"));else if(data!=null&&data.hasExtra("dayflow_open_command_page"))CommandScreen.open(this,data.getStringExtra("dayflow_open_command_page"));else if(timetable)new TimetableCapture(this,null);else if(data!=null&&data.getBooleanExtra("dayflow_open_inbox",false))showInbox();else if(data!=null&&data.getBooleanExtra("dayflow_open_schedule",false)){LocalDate day=LocalDate.now();try{day=LocalDate.parse(data.getStringExtra("dayflow_open_date"));}catch(Exception ignored){}openSchedule(day);}else home();if(prefs.getBoolean("assistant_needs_notification",false)){boolean exact=prefs.getBoolean("assistant_needs_exact_alarm",false);prefs.edit().remove("assistant_needs_notification").remove("assistant_needs_exact_alarm").apply();if(exact)reminderPermission();else notificationPermission();}return;}if(code==DocumentPlugins.REQUEST){DocumentPlugins.result(this,result,data);return;}if(code==124){WeekPng.result(this,result,data);return;}if(code==114){if(result==RESULT_OK&&data!=null)ExtensionHub.ocrResult(this,data);else ExtensionHub.cleanupOcr(this);return;}if(code==CardBackgrounds.PICK){if(result==RESULT_OK&&data!=null&&data.getData()!=null)CardBackgrounds.imported(this,data.getData());else CardBackgrounds.cancelImport(this);return;}if(result!=RESULT_OK||data==null||data.getData()==null)return;Uri uri=data.getData();
+        if(code==123)job(()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("无法打开目标文件");out.write(Diagnostics.export(this).getBytes(java.nio.charset.StandardCharsets.UTF_8));}return "已导出诊断日志";},null);
+        else if(code==101)job(()->{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){Data.get(this).writeExport(out);}return "已导出同步文件";},null);
         else if(code==102)job(()->{try(InputStream in=getContentResolver().openInputStream(uri)){return Data.get(this).importStream(in);}},this::home);
         else if(code==103){if(busy)return;busy=true;worker.execute(()->{try{JSONArray items;try(InputStream in=getContentResolver().openInputStream(uri)){items=Imports.timetable(Network.read(in,4*1024*1024));}runOnUiThread(()->{busy=false;if(!isDestroyed())importPreview(items);});}catch(Exception e){runOnUiThread(()->{busy=false;message(e.getMessage());});}});}
-        else if(code==110)ImageTools.crop(this,uri,cropped->new TimetableCapture(this,cropped));
+        else if(code==110)new TimetableCapture(this,uri);
         else if(code==112)ImageTools.crop(this,uri,cropped->ExtensionHub.runOcr(this,cropped));
         else if(code==107)job(()->{try(InputStream input=new FileInputStream(new File(getCacheDir(),"note-export.md"));OutputStream output=getContentResolver().openOutputStream(uri,"wt")){if(output==null)throw new IOException("无法打开目标文件");byte[] buffer=new byte[8192];int length;while((length=input.read(buffer))!=-1)output.write(buffer,0,length);}return "已导出 .md 文件";},null);
         else if(code==108)importMarkdown(uri,false,data.getFlags());
@@ -362,7 +375,44 @@ public final class MainActivity extends AppCompatActivity {
     public void openSchedule(LocalDate date){if(!date.equals(selected)){scheduleScroll=null;scheduleScrollY=0;}selected=date;tab="course";weekPreview=false;renderHome();}
     public void showInbox(){tab="inbox";weekPreview=false;renderHome();}
     public void showCaptureText(String text){try{JSONObject r=Data.make("inbox","识别文字 · 待确认").put("content",text).put("confirmation_status","pending");Data.validate(r);Data.get(this).save(r);changed();detail(r);}catch(Exception e){message(e.getMessage());}}
-    private boolean interactive(View view,float x,float y){android.graphics.Rect bounds=new android.graphics.Rect();if(!view.getGlobalVisibleRect(bounds)||!bounds.contains((int)x,(int)y))return false;if(view instanceof EditText||view instanceof SeekBar||view instanceof NumberPicker||view instanceof HorizontalScrollView||view.getClass().getName().contains("CropImageView"))return true;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=group.getChildCount()-1;i>=0;i--)if(interactive(group.getChildAt(i),x,y))return true;}return false;}
-    private void swipePage(boolean left){String[] pages={"agenda","week","note","course","inbox","settings"};String current=tab.equals("agenda")&&weekPreview?"week":tab;int position=java.util.Arrays.asList(pages).indexOf(current),next=position+(left?1:-1);if(next<0||next>=pages.length)return;weekPreview=pages[next].equals("week");if(weekPreview)weekStart=LocalDate.now();tab=weekPreview?"agenda":pages[next];transitionDirection=left?1:-1;renderHome();}
-    public boolean dispatchTouchEvent(MotionEvent e){if(e.getActionMasked()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();swiping=false;gestureEligible=rootPage&&editorState==null&&noteState==null&&!interactive(getWindow().getDecorView(),e.getRawX(),e.getRawY());}float dx=e.getX()-downX,dy=e.getY()-downY;if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&!swiping&&Math.abs(dy)>Ui.dp(this,16)&&Math.abs(dy)>Math.abs(dx)*1.3f)gestureEligible=false;if(e.getActionMasked()==MotionEvent.ACTION_MOVE&&gestureEligible&&prefs!=null&&prefs.getBoolean("swipe",true)&&Math.abs(dx)>Ui.dp(this,80)&&Math.abs(dx)>Math.abs(dy)*2){if(!swiping){MotionEvent cancel=MotionEvent.obtain(e);cancel.setAction(MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();swiping=true;}content.setTranslationX(Math.max(-Ui.dp(this,72),Math.min(Ui.dp(this,72),dx*.25f)));return true;}if(e.getActionMasked()==MotionEvent.ACTION_UP&&swiping){swiping=false;content.setTranslationX(0);if(Math.abs(dx)>Ui.dp(this,80))swipePage(dx<0);return true;}if(e.getActionMasked()==MotionEvent.ACTION_CANCEL){swiping=false;if(content!=null)content.setTranslationX(0);}return super.dispatchTouchEvent(e);}
+    private boolean interactive(View view,float x,float y){android.graphics.Rect bounds=new android.graphics.Rect();if(!view.getGlobalVisibleRect(bounds)||!bounds.contains((int)x,(int)y))return false;if(view instanceof DayTimeline||view instanceof TwoAxisScroll||view.canScrollHorizontally(-1)||view.canScrollHorizontally(1)||view instanceof com.google.android.material.slider.Slider||view instanceof com.google.android.material.slider.RangeSlider||view instanceof EditText||view instanceof SeekBar||view instanceof NumberPicker||view instanceof HorizontalScrollView||view.getClass().getName().contains("CropImageView"))return true;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=group.getChildCount()-1;i>=0;i--)if(interactive(group.getChildAt(i),x,y))return true;}return false;}
+    private String swipeDestination(boolean forward){return HomeNavigation.adjacent(visibleNavigationMask(),tab,forward);}
+    private void swipePage(boolean forward){
+        String next=swipeDestination(forward);if(next==null)return;
+        weekPreview=next.equals("week");if(weekPreview)weekStart=WeekOptions.first(this,LocalDate.now());
+        tab=next;transitionDirection=forward?1:-1;renderHome();
+    }
+    private boolean swipeStartAllowed(MotionEvent event){
+        if(UiStyle.neo(this)||!rootPage||onboarding!=null||editorState!=null||noteState!=null||content==null||prefs==null||!prefs.getBoolean("swipe",true))return false;
+        Rect bounds=new Rect();if(!content.getGlobalVisibleRect(bounds)||!bounds.contains((int)event.getRawX(),(int)event.getRawY()))return false;
+        WindowInsetsCompat insets=ViewCompat.getRootWindowInsets(shell);
+        androidx.core.graphics.Insets gestures=insets==null?androidx.core.graphics.Insets.NONE:insets.getInsets(WindowInsetsCompat.Type.systemGestures());
+        Rect window=new Rect();shell.getGlobalVisibleRect(window);
+        int left=Math.max(Ui.dp(this,24),gestures.left),right=Math.max(Ui.dp(this,24),gestures.right);
+        return event.getRawX()>window.left+left&&event.getRawX()<window.right-right&&!interactive(content,event.getRawX(),event.getRawY());
+    }
+    public boolean dispatchTouchEvent(MotionEvent event){
+        if(pageSwipe==null)pageSwipe=new PageSwipe(getResources().getDisplayMetrics().density,ViewConfiguration.get(this).getScaledTouchSlop());
+        switch(event.getActionMasked()){
+            case MotionEvent.ACTION_DOWN:
+                pageSwipe.begin(event.getRawX(),event.getRawY(),swipeStartAllowed(event),swipeDestination(true)!=null,swipeDestination(false)!=null);break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                pageSwipe.move(event.getRawX(),event.getRawY(),event.getPointerCount());
+                if(pageSwipe.captured()){content.setTranslationX(0);return true;}break;
+            case MotionEvent.ACTION_POINTER_UP:
+                if(pageSwipe.captured())return true;break;
+            case MotionEvent.ACTION_MOVE:
+                boolean captured=pageSwipe.captured();
+                if(pageSwipe.move(event.getRawX(),event.getRawY(),event.getPointerCount())){
+                    if(!captured){MotionEvent cancel=MotionEvent.obtain(event);cancel.setAction(MotionEvent.ACTION_CANCEL);super.dispatchTouchEvent(cancel);cancel.recycle();content.animate().cancel();}
+                    content.setTranslationX(Math.max(-Ui.dp(this,72),Math.min(Ui.dp(this,72),pageSwipe.delta(event.getRawX())*.25f)));return true;
+                }break;
+            case MotionEvent.ACTION_UP:
+                boolean owned=pageSwipe.captured();int direction=pageSwipe.finish(event.getRawX(),event.getRawY());
+                if(owned){content.setTranslationX(0);if(direction!=0)swipePage(direction>0);return true;}break;
+            case MotionEvent.ACTION_CANCEL:
+                boolean cancelled=pageSwipe.captured();pageSwipe.reset();if(content!=null)content.setTranslationX(0);if(cancelled)return true;break;
+        }
+        return super.dispatchTouchEvent(event);
+    }
 }

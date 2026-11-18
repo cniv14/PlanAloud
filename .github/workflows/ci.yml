@@ -1,10 +1,25 @@
 name: Build and test
 on:
   workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: 'Existing release tag to upload prepared, signed assets; empty runs normal CI'
+        type: string
+        default: ''
+      asset_ref:
+        description: 'Repository ref containing checksummed release files'
+        type: string
+        default: 'builds/android-1.5.9'
+      asset_channel:
+        description: 'Upload formal or Debug assets separately'
+        type: choice
+        options: [stable, debug]
+        default: stable
 permissions:
   contents: read
 jobs:
   server:
+    if: ${{ inputs.publish_tag == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,6 +28,7 @@ jobs:
           python-version: '3.12'
       - run: python -m unittest discover -s server -v
   android:
+    if: ${{ inputs.publish_tag == '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,13 +41,14 @@ jobs:
         with:
           gradle-version: '9.6.1'
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
-      - run: gradle --no-daemon :app:assembleDebug :app:lintDebug
+      - run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
         working-directory: android
       - uses: actions/upload-artifact@v4
         with:
           name: android-debug-development-only
           path: android/app/build/outputs/apk/debug/*.apk
   windows:
+    if: ${{ inputs.publish_tag == '' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,3 +58,30 @@ jobs:
       - run: dotnet run --project tests/LocalStore.Tests.csproj -c Release
       - run: dotnet build windows/PlanAloud.Widget.csproj -c Release
       - run: dotnet build windows/Updater/PlanAloud.Updater.csproj -c Release
+  publish:
+    if: ${{ inputs.publish_tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.asset_ref }}
+          persist-credentials: false
+      - name: Verify prepared artifacts and upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.publish_tag }}
+          CHANNEL: ${{ inputs.asset_channel }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CHANNEL" in
+            stable) sha256sum -c SHA256SUMS ;;
+            debug) sha256sum -c SHA256SUMS-debug.txt ;;
+            *) exit 1 ;;
+          esac
+          while IFS= read -r asset; do
+            [[ "$asset" =~ ^[A-Za-z0-9._-]+$ ]] && [[ -f "$asset" ]] || exit 1
+            gh release upload "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --clobber
+          done < "$CHANNEL-assets.txt"

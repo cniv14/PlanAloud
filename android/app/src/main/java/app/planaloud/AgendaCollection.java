@@ -22,27 +22,11 @@ public final class AgendaCollection extends RemoteViewsService {
             JSONObject r=rows.optJSONObject(n);if(r==null)return null;boolean dark=AgendaWidget.dark(c);
             RemoteViews v=new RemoteViews(c.getPackageName(),detailed?R.layout.widget_item_detailed:R.layout.widget_item);
             java.time.LocalDateTime now=java.time.LocalDateTime.now();
-            int shade;
-            switch(PlanTime.priority(r,now)){
-                case "near": shade=dark?R.drawable.widget_priority_high_dark:R.drawable.widget_priority_high; break;
-                case "high": shade=dark?R.drawable.widget_priority_important_dark:R.drawable.widget_priority_important; break;
-                case "urgent": shade=dark?R.drawable.widget_priority_normal_dark:R.drawable.widget_priority_normal; break;
-                case "normal": shade=dark?R.drawable.widget_priority_low_dark:R.drawable.widget_priority_low; break;
-                case "low": shade=dark?R.drawable.widget_priority_relaxed_dark:R.drawable.widget_priority_relaxed; break;
-                default: shade=dark?R.drawable.widget_glass_dark:R.drawable.widget_glass;
-            }
-            v.setInt(R.id.widget_item,"setBackgroundResource",shade);
-            v.setTextViewText(R.id.widget_item_title,r.optString("title"));String plan=PlanTime.planning(r);
-            String meta=PlanTime.taskLabel(r,now.toLocalDate(),false,now);
-            if(detailed){
-                if(r.optString("start_at").isEmpty()&&!r.optString("due_date").isEmpty()&&!PlanTime.countdown(r,now).isEmpty())
-                    meta+="\n截止 "+PlanningFields.deadlineLabel(r);
-                if(!plan.isEmpty())meta+="\n"+plan;
-                if(!r.optString("location").isEmpty())meta+="\n"+r.optString("location");
-                if(!r.optString("content").isEmpty())meta+="\n"+r.optString("content");
-            }else if(!plan.isEmpty())meta+=" · "+plan;
+            WidgetCardStyle.apply(c,v,r,false);
+            v.setViewVisibility(R.id.widget_priority_pattern,PriorityPattern.present(r)?android.view.View.VISIBLE:android.view.View.GONE);if(PriorityPattern.present(r)){WidgetImages.set(v,R.id.widget_priority_pattern,PriorityPattern.bitmap(r));v.setContentDescription(R.id.widget_priority_pattern,PriorityPattern.label(r));}v.setTextViewText(R.id.widget_item_title,r.optString("title"));
+            String meta=DayAgenda.meta(r,now.toLocalDate());
             v.setTextViewText(R.id.widget_item_meta,meta);
-            v.setTextColor(R.id.widget_item_title,dark?0xffeef5fa:0xff1b2730);v.setTextColor(R.id.widget_item_meta,dark?0xffc8d7e4:0xff445664);v.setTextColor(R.id.widget_item_done,ThemeColors.accent(c,dark));
+            v.setTextColor(R.id.widget_item_title,EventColors.ink(c,r));v.setTextColor(R.id.widget_item_meta,EventColors.ink(c,r));v.setTextColor(R.id.widget_item_done,EventColors.ink(c,r));
             Intent row=new Intent().putExtra("record_id",r.optString("id")).putExtra("series_id",r.optString("series_id")).putExtra("occurrence_date",r.optString("occurrence_date"));
             v.setOnClickFillInIntent(R.id.widget_item,row);v.setOnClickFillInIntent(R.id.widget_item_open,row);v.setOnClickFillInIntent(R.id.widget_item_done,new Intent(row).putExtra("complete",true));return v;
         }

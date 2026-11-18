@@ -1,0 +1,1 @@
+<ViewFlipper xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_card_animation" android:layout_width="match_parent" android:layout_height="match_parent" android:autoStart="true" android:flipInterval="125" android:measureAllChildren="false" android:importantForAccessibility="no" />

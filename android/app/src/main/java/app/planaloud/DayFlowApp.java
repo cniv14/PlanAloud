@@ -5,7 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.color.DynamicColorsOptions;
 public final class DayFlowApp extends Application implements app.planaloud.assistant.ConversationAppearance {
-    public void onCreate(){super.onCreate();ModuleUpdates.init(this);HotUpdates.init(this);registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks(){public void onActivityResumed(android.app.Activity a){ModuleUpdates.resumed(a);}public void onActivityCreated(android.app.Activity a,android.os.Bundle b){}public void onActivityStarted(android.app.Activity a){}public void onActivityPaused(android.app.Activity a){}public void onActivityStopped(android.app.Activity a){}public void onActivitySaveInstanceState(android.app.Activity a,android.os.Bundle b){}public void onActivityDestroyed(android.app.Activity a){}});Holidays.init(this);SharedPreferences p=getSharedPreferences("settings",0);
+    public void onCreate(){super.onCreate();EventPalette.init(this);app.planaloud.voice.VoiceSettings.migrate(this);ModuleUpdates.init(this);HotUpdates.init(this);registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks(){public void onActivityResumed(android.app.Activity a){ModuleUpdates.resumed(a);if(!(a instanceof FloatingAssistantActivity))FloatingAssistant.collapseForApp();}public void onActivityCreated(android.app.Activity a,android.os.Bundle b){}public void onActivityStarted(android.app.Activity a){}public void onActivityPaused(android.app.Activity a){}public void onActivityStopped(android.app.Activity a){}public void onActivitySaveInstanceState(android.app.Activity a,android.os.Bundle b){}public void onActivityDestroyed(android.app.Activity a){}});Holidays.init(this);SharedPreferences p=getSharedPreferences("settings",0);if(p.contains("motion"))p.edit().remove("motion").apply();
         if(p.contains("qweather_host"))p.edit().remove("qweather_host").apply();
         SharedPreferences secrets=getSharedPreferences("secrets",0);
         if(secrets.contains("qweather_api_key"))secrets.edit().remove("qweather_api_key").apply();
@@ -21,6 +21,15 @@ public final class DayFlowApp extends Application implements app.planaloud.assis
             @Override public void onViewDetachedFromWindow(android.view.View view){backdrop.release();}
         });
         return backdrop;
+    }
+    @Override public void recordConversationError(String operation,Throwable failure){Diagnostics.record(this,operation,failure);}
+    @Override public boolean applyConversationTheme(android.app.Activity activity){ThemeColors.apply(activity);return true;}
+    @Override public void styleConversationSurface(android.view.View view,boolean own){
+        android.content.Context c=view.getContext();float radius=Ui.compact(c)?16:20;
+        android.graphics.drawable.GradientDrawable shape=new android.graphics.drawable.GradientDrawable();
+        shape.setColor(LiquidGlass.tint(Ui.color(c,own?com.google.android.material.R.attr.colorSecondaryContainer:com.google.android.material.R.attr.colorSurfaceContainerLow),185));
+        shape.setCornerRadius(Ui.dp(c,radius));shape.setStroke(Ui.dp(c,1),Ui.color(c,com.google.android.material.R.attr.colorOutlineVariant));
+        view.setBackground(shape);LiquidGlass.outline(view,radius);
     }
     public static void applyTheme(String value){AppCompatDelegate.setDefaultNightMode("dark".equals(value)?AppCompatDelegate.MODE_NIGHT_YES:"light".equals(value)?AppCompatDelegate.MODE_NIGHT_NO:AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);}
 }
