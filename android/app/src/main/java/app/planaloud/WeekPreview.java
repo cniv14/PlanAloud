@@ -11,11 +11,15 @@ import org.json.JSONObject;
 
 /** Frozen date/time axes around a minute-accurate, freely pannable timetable. */
 final class WeekPreview {
-    static void show(MainActivity a,LinearLayout page,LocalDate first,java.util.function.Consumer<LocalDate> change,Runnable refresh){
+    static void show(MainActivity a,LinearLayout page,LocalDate first,java.util.function.Consumer<LocalDate> change,Runnable refresh){build(a,page,first,change,refresh,false);}
+    static void fill(MainActivity a,LinearLayout page,LocalDate first,Runnable refresh){build(a,page,first,a::showWeek,refresh,true);}
+    private static void build(MainActivity a,LinearLayout page,LocalDate first,java.util.function.Consumer<LocalDate> change,Runnable refresh,boolean fill){
+        if(!fill){
         LinearLayout controls=Ui.row(a);page.addView(controls);action(a,controls,"上一周",R.drawable.ic_back,()->change.accept(first.minusWeeks(1)));action(a,controls,"回到今天",R.drawable.ic_calendar,()->change.accept(LocalDate.now()));
         android.widget.ImageButton next=new android.widget.ImageButton(a);next.setImageResource(R.drawable.ic_back);next.setRotation(180);next.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.primary(a)));next.setBackgroundColor(Color.TRANSPARENT);next.setContentDescription("下一周");next.setTooltipText("下一周");next.setOnClickListener(v->change.accept(first.plusWeeks(1)));controls.addView(next,new LinearLayout.LayoutParams(0,Ui.dp(a,48),1));
         action(a,controls,"导出 PNG",android.R.drawable.ic_menu_save,()->WeekPng.request(a,first));action(a,controls,"使用帮助",android.R.drawable.ic_menu_help,()->WeekPng.help(a));
         page.addView(Ui.text(a,first+" — "+first.plusDays(6),16,true));
+        }
         WeekSchedule snapshot;try{snapshot=WeekSchedule.load(a,first);}catch(Exception failure){a.message("无法读取周日程："+failure.getMessage());return;}WeekGeometry geometry=new WeekGeometry(snapshot);
         int width=Ui.dp(a,128),header=Ui.dp(a,44),side=Ui.dp(a,46),height=Math.round(geometry.minutes()*Ui.dp(a,72)/60f);float ppm=height/(float)geometry.minutes();
         LinearLayout table=Ui.column(a);table.setTag("week-table");LinearLayout top=Ui.row(a);table.addView(top,new LinearLayout.LayoutParams(-1,header));top.addView(label(a,"时间",true),new LinearLayout.LayoutParams(side,-1));
@@ -37,7 +41,7 @@ final class WeekPreview {
             }
             java.util.List<JSONObject> due=geometry.deadlines.get(d);TextView deadline=label(a,due.isEmpty()?"":due.get(0).optString("title")+(due.size()>1?" +"+(due.size()-1):""),false);deadline.setSingleLine(true);deadline.setEllipsize(android.text.TextUtils.TruncateAt.END);deadline.setContentDescription(due.isEmpty()?"当天无截止待办":"截止待办 · "+titles(due));if(!due.isEmpty())deadline.setOnClickListener(v->choose(a,due,"截止待办"));FrameLayout dueCell=new FrameLayout(a);dueCell.addView(deadline,new FrameLayout.LayoutParams(-1,Ui.dp(a,26),Gravity.TOP));View stripe=new View(a);stripe.setBackgroundColor(LiquidGlass.tint(Ui.primary(a),due.isEmpty()?25:130));FrameLayout.LayoutParams stripeAt=new FrameLayout.LayoutParams(-1,Ui.dp(a,4),Gravity.BOTTOM);stripeAt.bottomMargin=Ui.dp(a,5);dueCell.addView(stripe,stripeAt);dueCell.setContentDescription(deadline.getContentDescription());if(!due.isEmpty())dueCell.setOnClickListener(v->choose(a,due,"截止待办"));dueRow.addView(dueCell,new LinearLayout.LayoutParams(width,-1));
         }
-        page.addView(table,new LinearLayout.LayoutParams(-1,Ui.dp(a,Math.max(280,Math.min(900,a.getResources().getConfiguration().screenHeightDp-180)))));
+        page.addView(table,new LinearLayout.LayoutParams(-1,fill?0:Ui.dp(a,Math.max(280,Math.min(900,a.getResources().getConfiguration().screenHeightDp-180))),fill?1:0));
         if(geometry.firstMinute<480||geometry.lastMinute>1320)page.addView(Ui.help(a,"时间范围自动延长至 "+DayEvents.clock(geometry.firstMinute)+"–"+DayEvents.clock(geometry.lastMinute)));
     }
     private static void action(MainActivity a,LinearLayout row,String name,int icon,Runnable run){com.google.android.material.button.MaterialButton button=Ui.iconButton(a,"",icon,false,run);button.setContentDescription(name);button.setTooltipText(name);row.addView(button,new LinearLayout.LayoutParams(0,Ui.dp(a,48),1));}

@@ -1,0 +1,36 @@
+package app.planaloud;
+
+import android.graphics.Color;
+import android.view.*;
+import android.widget.*;
+import android.content.res.ColorStateList;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import java.time.*;
+import java.util.*;
+import org.json.JSONObject;
+
+/** Neo: fixed week toolbar, a full-height axis/list, and an app-icon AI action. */
+final class NeoHome {
+    static void show(MainActivity a,LocalDate first){
+        LinearLayout page=a.editorPage("Neo",null);page.setTag("neo-shell");page.setPadding(Ui.dp(a,8),Ui.dp(a,4),Ui.dp(a,8),0);
+        LinearLayout toolbar=Ui.row(a);page.addView(toolbar);boolean list="list".equals(a.prefs.getString("neo_view","axis"));
+        MaterialButton toggle=Ui.button(a,list?"列表":"时间轴",false,()->{a.prefs.edit().putString("neo_view",list?"axis":"list").apply();a.neoViewChanged();});toggle.setContentDescription(list?"切换到时间轴视图":"切换到列表视图");toolbar.addView(toggle,new LinearLayout.LayoutParams(0,Ui.dp(a,48),1.5f));
+        icon(a,toolbar,"上一周",R.drawable.ic_back,()->a.showWeek(first.minusWeeks(1)),false);icon(a,toolbar,"下一周",R.drawable.ic_back,()->a.showWeek(first.plusWeeks(1)),true);icon(a,toolbar,"保存周日程 PNG",android.R.drawable.ic_menu_save,()->WeekPng.request(a,first),false);
+        ImageButton menu=new ImageButton(a);menu.setImageResource(R.drawable.ic_more);menu.setImageTintList(ColorStateList.valueOf(Ui.primary(a)));menu.setBackgroundColor(Color.TRANSPARENT);menu.setContentDescription("更多功能");menu.setTooltipText("更多功能");menu.setOnClickListener(v->menu(a,menu,first));toolbar.addView(menu,new LinearLayout.LayoutParams(Ui.dp(a,44),Ui.dp(a,48)));
+        TextView range=Ui.text(a,first+" — "+first.plusDays(6),14,true);range.setPadding(Ui.dp(a,6),Ui.dp(a,4),0,Ui.dp(a,6));page.addView(range);
+        if(list)list(a,page,first);else WeekPreview.fill(a,page,first,a::home);
+        FloatingActionButton ai=new FloatingActionButton(a);ai.setTag("neo-ai");ai.setImageResource(ProviderAppearance.current(a.prefs).icon);ai.setImageTintList(null);ai.setBackgroundTintList(ColorStateList.valueOf(Ui.color(a,com.google.android.material.R.attr.colorPrimaryContainer)));ai.setCustomSize(Ui.dp(a,56));ai.setShapeAppearanceModel(ai.getShapeAppearanceModel().toBuilder().setAllCornerSizes(Ui.dp(a,28)).build());ai.setContentDescription("问序言 AI");ai.setTooltipText("问序言 AI");ai.setOnClickListener(v->AssistantPlugin.open(a));FrameLayout.LayoutParams at=new FrameLayout.LayoutParams(Ui.dp(a,56),Ui.dp(a,56),Gravity.END|Gravity.BOTTOM);at.setMargins(0,0,Ui.dp(a,16),Ui.dp(a,58));((FrameLayout)page.getParent()).addView(ai,at);
+    }
+    private static void icon(MainActivity a,LinearLayout row,String name,int drawable,Runnable run,boolean reverse){ImageButton button=new ImageButton(a);button.setImageResource(drawable);button.setImageTintList(ColorStateList.valueOf(Ui.primary(a)));button.setBackgroundColor(Color.TRANSPARENT);if(reverse)button.setRotation(180);button.setContentDescription(name);button.setTooltipText(name);button.setOnClickListener(v->run.run());row.addView(button,new LinearLayout.LayoutParams(0,Ui.dp(a,48),1));}
+    static void returnBar(MainActivity a,LinearLayout page){LinearLayout row=Ui.row(a);ImageButton back=new ImageButton(a);back.setImageResource(R.drawable.ic_back);back.setBackgroundColor(Color.TRANSPARENT);back.setImageTintList(ColorStateList.valueOf(Ui.primary(a)));back.setContentDescription("返回 Neo");back.setOnClickListener(v->a.openPage("agenda"));row.addView(back,new LinearLayout.LayoutParams(Ui.dp(a,48),Ui.dp(a,48)));page.addView(row);}
+    private static void menu(MainActivity a,View anchor,LocalDate first){PopupMenu menu=new PopupMenu(a,anchor);String[] labels={"今天","新建待办","今日进度","日历与课表","笔记","收集箱","设置","界面风格","使用引导","悬浮助手","功能中心"};for(int i=0;i<labels.length;i++)menu.getMenu().add(0,i,i,labels[i]);menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){case 0:a.showWeek(LocalDate.now());break;case 1:a.newRecord("task");break;case 2:progress(a);break;case 3:a.openSchedule(first);break;case 4:a.openPage("note");break;case 5:a.showInbox();break;case 6:a.openPage("settings");break;case 7:UiStyle.show(a);break;case 8:Onboarding.show(a);break;case 9:FloatingAssistant.toggle(a);break;case 10:CommandScreen.show(a);break;default:break;}return true;});menu.show();}
+    private static void progress(MainActivity a){LinearLayout body=Ui.padded(a);body.addView(new DayTimeline(a),new LinearLayout.LayoutParams(-1,-2));new com.google.android.material.dialog.MaterialAlertDialogBuilder(a).setTitle("今日进度").setView(body).setPositiveButton("关闭",null).show();}
+    private static void list(MainActivity a,LinearLayout page,LocalDate first){
+        ScrollView scroll=new ScrollView(a);scroll.setTag("neo-list");LinearLayout content=Ui.padded(a);scroll.addView(content);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));if(!LocalDate.now().isBefore(first)&&!LocalDate.now().isAfter(first.plusDays(6))){content.addView(Ui.text(a,"今日进度",16,true));content.addView(new DayTimeline(a),new LinearLayout.LayoutParams(-1,-2));}
+        try{WeekSchedule week=WeekSchedule.load(a,first);WeekGeometry geometry=new WeekGeometry(week);for(int d=0;d<7;d++){
+            LocalDate date=first.plusDays(d);content.addView(Ui.text(a,date.toString()+" · "+date.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL,Locale.CHINA),17,true));Set<String> seen=new HashSet<>();java.util.List<JSONObject> records=new ArrayList<>(week.allDay.get(d));for(WeekGeometry.Timed event:geometry.days.get(d))records.add(event.record);records.addAll(geometry.deadlines.get(d));int count=0;
+            for(JSONObject record:records)if(seen.add(record.optString("id",record.optString("title")))){count++;com.google.android.material.card.MaterialCardView card=Ui.card(a);LinearLayout text=Ui.padded(a);text.addView(Ui.text(a,record.optString("title"),15,true));text.addView(Ui.help(a,PlanTime.dailyLabel(record,date)));card.addView(text);card.setOnClickListener(v->a.detail(record));content.addView(card);}if(count==0)content.addView(Ui.help(a,"暂无安排"));
+        }}catch(Exception failure){content.addView(Ui.help(a,"无法读取周日程："+failure.getMessage()));}Space room=new Space(a);content.addView(room,new LinearLayout.LayoutParams(-1,Ui.dp(a,64)));
+    }
+}
