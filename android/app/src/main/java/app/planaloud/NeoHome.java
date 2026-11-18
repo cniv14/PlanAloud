@@ -13,7 +13,7 @@ import org.json.JSONObject;
 /** Neo: fixed week toolbar, a full-height axis/list, and an app-icon AI action. */
 final class NeoHome {
     static void show(MainActivity a,LocalDate first){
-        LinearLayout page=a.editorPage("Neo",null);page.setTag("neo-shell");page.setPadding(Ui.dp(a,8),Ui.dp(a,4),Ui.dp(a,8),0);
+        LinearLayout page=a.neoPage();page.setTag("neo-shell");page.setPadding(Ui.dp(a,8),Ui.dp(a,4),Ui.dp(a,8),0);
         boolean list="list".equals(a.prefs.getString("neo_view","axis"));LinearLayout header=Ui.column(a);header.setPadding(Ui.dp(a,4),Ui.dp(a,2),Ui.dp(a,4),Ui.dp(a,2));header.setBackground(LiquidGlass.panel(a,18));page.addView(header);
         LinearLayout toolbar=Ui.row(a);header.addView(toolbar);com.google.android.material.button.MaterialButtonToggleGroup modes=new com.google.android.material.button.MaterialButtonToggleGroup(a);modes.setSingleSelection(true);modes.setSelectionRequired(true);toolbar.addView(modes,new LinearLayout.LayoutParams(Ui.dp(a,96),Ui.dp(a,48)));
         MaterialButton axis=mode(a,modes,R.drawable.ic_schedule,list?"切换到时间轴视图":"当前时间轴视图",()->{if(list){a.prefs.edit().putString("neo_view","axis").apply();a.neoViewChanged();}}),listing=mode(a,modes,android.R.drawable.ic_menu_agenda,list?"当前列表视图":"切换到列表视图",()->{if(!list){a.prefs.edit().putString("neo_view","list").apply();a.neoViewChanged();}});modes.check(list?listing.getId():axis.getId());

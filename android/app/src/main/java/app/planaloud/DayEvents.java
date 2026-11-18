@@ -25,11 +25,12 @@ final class DayEvents {
             if(!end.isAfter(first)||!start.isBefore(last))continue;
             int from=(int)Math.max(0,Duration.between(first,start).toMinutes()),to=(int)Math.min(1440,Duration.between(first,end).toMinutes());if(to<=from)continue;
             int lane=0;while(lane<5&&lanes[lane]>from)lane++;lanes[lane]=to;
-            String identity=r.optString("series_id",r.optString("id",r.optString("title")));if(identity.isEmpty())identity=r.optString("id",r.optString("title"));int color=COLORS[Math.floorMod(identity.hashCode(),COLORS.length)];
+            int color=color(r);
             result.add(new Segment(from,to,color,lane,r.optString("title")));
         }catch(Exception ignored){}}
         return result;
     }
+    static int color(JSONObject r){String identity=r.optString("series_id",r.optString("id",r.optString("title")));if(identity.isEmpty())identity=r.optString("id",r.optString("title"));return COLORS[Math.floorMod(identity.hashCode(),COLORS.length)];}
     static int lanes(List<Segment> events){int count=1;for(Segment s:events)count=Math.max(count,s.lane+1);return count;}
     static java.util.List<Segment> at(java.util.List<Segment> events,LocalTime now){int minute=DayTime.minute(now);java.util.List<Segment> active=new ArrayList<>();for(Segment event:events)if(event.start<=minute&&minute<event.end)active.add(event);return active;}
     static void draw(Canvas canvas,Paint paint,List<Segment> events,float left,float top,float width,float laneHeight,int outline){

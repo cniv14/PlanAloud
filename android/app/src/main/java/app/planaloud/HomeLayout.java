@@ -8,7 +8,7 @@ final class HomeLayout {
     static void show(MainActivity a){
         LinearLayout page=a.fullPage("主界面布局",()->new SettingsPanels(a).appearance());
         page.addView(Ui.text(a,"主界面栏目",22,true));
-        page.addView(Ui.help(a,"勾选需要的栏目，底部栏数量随之调整。设置入口始终保留；隐藏功能仍可从更多功能或 / 指令打开。"));
+        page.addView(Ui.help(a,"勾选需要的栏目，底部栏数量随之调整。周预览与设置入口始终保留；全部开启时，笔记和收集箱合并到更多入口；隐藏功能仍可从更多功能或 / 指令打开。"));
         String[] keys={"home_today","home_schedule","home_notes","home_inbox"},labels={"今天","日程","笔记","收集箱"};
         for(int i=0;i<keys.length;i++){
             String key=keys[i];MaterialSwitch toggle=new MaterialSwitch(a);toggle.setText(labels[i]);toggle.setChecked(a.prefs.getBoolean(key,i<2));page.addView(toggle);

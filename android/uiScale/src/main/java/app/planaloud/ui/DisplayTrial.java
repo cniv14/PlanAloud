@@ -12,7 +12,7 @@ public final class DisplayTrial {
     public static long remaining(Context c){SharedPreferences p=prefs(c);if(!p.getBoolean(PREFIX+"pending",false))return 0;long elapsed=SystemClock.elapsedRealtime();if(elapsed<p.getLong(PREFIX+"started",Long.MAX_VALUE))return 0;return Math.max(0,Math.min(p.getLong(PREFIX+"wall",0)-System.currentTimeMillis(),p.getLong(PREFIX+"elapsed",0)-elapsed));}
     public static boolean recoverIfExpired(Context c){return pending(c)&&remaining(c)<=0&&revert(c);}
     public static boolean begin(Context c,int ui,int font,String style){
-        if(pending(c))revert(c);SharedPreferences p=prefs(c);ui=UiScale.interfacePercent(ui);font=UiScale.fontPercent(font);style="neo".equals(style)?"neo":"classic";
+        if(pending(c))revert(c);SharedPreferences p=prefs(c);ui=UiScale.interfacePercent(ui);font=UiScale.fontPercent(font);style="neo".equals(style)?"neo":"timetable".equals(style)?"timetable":"classic";
         if(ui==p.getInt("ui_scale",100)&&font==p.getInt("font_scale",100)&&style.equals(p.getString("ui_style","classic")))return false;
         long now=SystemClock.elapsedRealtime();return p.edit().putBoolean(PREFIX+"pending",true).putBoolean(PREFIX+"had_ui",p.contains("ui_scale")).putBoolean(PREFIX+"had_font",p.contains("font_scale")).putBoolean(PREFIX+"had_style",p.contains("ui_style")).putInt(PREFIX+"old_ui",p.getInt("ui_scale",100)).putInt(PREFIX+"old_font",p.getInt("font_scale",100)).putString(PREFIX+"old_style",p.getString("ui_style","classic")).putLong(PREFIX+"started",now).putLong(PREFIX+"elapsed",now+10000).putLong(PREFIX+"wall",System.currentTimeMillis()+10000).putInt("ui_scale",ui).putInt("font_scale",font).putString("ui_style",style).commit();
     }

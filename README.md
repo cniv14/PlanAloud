@@ -127,3 +127,5 @@ Android 自定义 instrumentation 测试运行真实 SQLite、导入解析和 Ke
 本项目代码采用 [MIT License](LICENSE)。Android UI 依赖的 Material Components 和 AndroidX 使用 Apache 2.0，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。Android SDK、OpenJDK、.NET、Python、Caddy 与构建工具各自保留其原许可证；MIT 不替代这些许可证。Android 天气优先使用 [Open-Meteo](https://open-meteo.com/)，失败时切换到 [MET Norway](https://api.met.no/weatherapi/locationforecast/2.0/documentation)。在「位置与天气」中选择城市、定位或输入经纬度即可查询。AI 使用用户自行配置的服务。
 
 其他客户端开发请参阅 [同步消息类型与 API](docs/客户端同步API.md)。
+
+完整操作与 AI 查询说明：[功能说明](docs/功能说明.md)。应用内 AI 可通过 `guide.read` 按章节查询同一份文档。

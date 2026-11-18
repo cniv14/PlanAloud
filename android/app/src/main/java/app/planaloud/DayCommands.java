@@ -44,6 +44,7 @@ final class DayCommands {
     private static void add(String id,String title,String example,boolean approval,boolean ai,Run run){commands.put(id,new Entry(id,title,example,approval,ai,run));}
     static Collection<Entry> entries(){return Collections.unmodifiableCollection(commands.values());}
     static {
+        add("guide.read","查阅完整功能说明，按章节或关键词读取；空参数返回目录","{\"topic\":\"voice\",\"offset\":0}",false,true,(c,a,x)->FeatureGuide.read(c,a));
         add("help","查找命令及参数示例","{}",false,true,(c,a,x)->catalog(c,a.optString("query"),x));
         add("agenda.today","查看某天待办","{}",false,true,(c,a,x)->page(Data.get(c).dayTasks(date(a)),a));
         add("agenda.week","查看未来七天安排与天气","{}",false,true,(c,a,x)->week(c,date(a)));

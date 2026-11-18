@@ -28,3 +28,7 @@
 
 # Embedded modules resolve the shared display wrapper against the host.
 -keep class app.planaloud.ui.UiScale { public *; }
+
+# Press-to-talk plugin entry points are resolved by name.
+-keep class app.planaloud.VoiceBridge { public static *; }
+-keep class app.planaloud.voice.VoiceInput { public static *; }

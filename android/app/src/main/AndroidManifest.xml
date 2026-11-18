@@ -103,9 +103,14 @@
         </service>
         <receiver android:name=".WidgetActions" android:exported="false"/>
         <activity android:name=".WidgetActionActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+        <service android:name=".TwoDayCollection" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS"/>
+        <receiver android:name=".TwoDayWidget" android:label="序言 · 今天与明天" android:exported="false">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/><action android:name="android.intent.action.DATE_CHANGED"/><action android:name="android.intent.action.TIME_SET"/><action android:name="android.intent.action.TIMEZONE_CHANGED"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/two_day_widget"/>
+        </receiver>
         <service android:name=".AgendaCollection" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS"/>
         <receiver android:name=".AgendaWidget" android:label="序言 · 近期日程" android:exported="false">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /><action android:name="android.intent.action.DATE_CHANGED"/><action android:name="android.intent.action.TIME_SET"/><action android:name="android.intent.action.TIMEZONE_CHANGED"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/agenda_widget" />
         </receiver>
         <activity android:name=".FloatingAssistantActivity" android:exported="false" android:excludeFromRecents="true"

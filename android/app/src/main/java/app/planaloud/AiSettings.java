@@ -29,7 +29,7 @@ public final class AiSettings {
         MaterialAutoCompleteTextView provider=dropdown(a,form,"厂商",NAMES,NAMES[selected],false);
         TextInputEditText endpoint=Ui.field(a,form,"API 根地址",saved,false);MaterialAutoCompleteTextView model=dropdown(a,form,"模型（可选择或手动输入）",selected<MODELS.length?MODELS[selected]:new String[0],p.getString("model",selected<MODELS.length?MODELS[selected][0]:""),true);TextInputEditText key=Ui.field(a,form,"API Key（留空使用此接口已保存的密钥）","",false);key.setInputType(129);
         TextView info=Ui.help(a,"可填写 OpenAI Chat Completions 兼容接口。不同地址的 API Key 分开保存。官方 DeepSeek 地址的密钥会同时用于 DeepSeek 语音识别。");
-        form.addView(info);
+        form.addView(info);form.addView(Ui.tile(a,"语音识别","按住说话 · 服务与密钥设置",()->VoiceOptions.show(a)));
         TextView iconInfo=Ui.help(a,"当前图标 "+ProviderAppearance.current(p).label+" · 可在外观设置中固定");
         form.addView(iconInfo);
         provider.setOnItemClickListener((parent,view,position,id)->{

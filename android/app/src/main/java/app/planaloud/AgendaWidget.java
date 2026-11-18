@@ -17,13 +17,13 @@ import org.json.*;
 
 public final class AgendaWidget extends AppWidgetProvider {
     private static final String PROGRESS="app.planaloud.WIDGET_DAY_PROGRESS";
-    private static final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
+    static final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
     private static final java.util.concurrent.atomic.AtomicBoolean queued=new java.util.concurrent.atomic.AtomicBoolean();
     static android.content.SharedPreferences prefs(Context c){return c.getSharedPreferences("settings",0);}
     static boolean dark(Context c){String value=prefs(c).getString("theme","system");return value.equals("dark")||value.equals("system")&&(c.getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES;}
     public static void refresh(Context context){
         Context c=context.getApplicationContext();if(!queued.compareAndSet(false,true))return;
-        worker.execute(()->{queued.set(false);AppWidgetManager m=AppWidgetManager.getInstance(c);update(c,m,m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)));});
+        worker.execute(()->{queued.set(false);AppWidgetManager m=AppWidgetManager.getInstance(c);update(c,m,m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)));TwoDayWidget.update(c,m,m.getAppWidgetIds(new ComponentName(c,TwoDayWidget.class)));schedule(c,m);});
     }
     private static PendingIntent open(Context c,JSONObject r,boolean quick){
         String id=r==null?"":r.optString("id");Intent i=new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -31,13 +31,13 @@ public final class AgendaWidget extends AppWidgetProvider {
         if(quick)i.putExtra("quick",true).putExtra("quick_kind","task");i.setData(Uri.parse("planaloud://widget/"+(quick?"new":id.isEmpty()?"home":id)));
         return PendingIntent.getActivity(c,0,i,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
     }
-    @Override public void onReceive(Context c,Intent intent){if(PROGRESS.equals(intent.getAction())){refresh(c);return;}super.onReceive(c,intent);}
+    @Override public void onReceive(Context c,Intent intent){if(PROGRESS.equals(intent.getAction())||Intent.ACTION_DATE_CHANGED.equals(intent.getAction())||Intent.ACTION_TIME_CHANGED.equals(intent.getAction())||Intent.ACTION_TIMEZONE_CHANGED.equals(intent.getAction())){refresh(c);return;}super.onReceive(c,intent);}
     private static PendingIntent progressIntent(Context c){return PendingIntent.getBroadcast(c,531,new Intent(c,AgendaWidget.class).setAction(PROGRESS),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
-    @Override public void onDisabled(Context c){c.getSystemService(AlarmManager.class).cancel(progressIntent(c));super.onDisabled(c);}
+    @Override public void onDisabled(Context c){schedule(c,AppWidgetManager.getInstance(c));super.onDisabled(c);}
     public void onAppWidgetOptionsChanged(Context c,AppWidgetManager m,int id,Bundle options){onUpdate(c,m,new int[]{id});}
-    public void onUpdate(Context c,AppWidgetManager m,int[] ids){PendingResult pending=goAsync();worker.execute(()->{try{update(c,m,ids);}finally{if(pending!=null)pending.finish();}});}
+    public void onUpdate(Context c,AppWidgetManager m,int[] ids){PendingResult pending=goAsync();worker.execute(()->{try{update(c,m,ids);schedule(c,m);}finally{if(pending!=null)pending.finish();}});}
     private static void update(Context c,AppWidgetManager manager,int[] ids){
-        if(ids.length==0)return;c.getSystemService(AlarmManager.class).set(AlarmManager.ELAPSED_REALTIME,android.os.SystemClock.elapsedRealtime()+15*60000L,progressIntent(c));boolean dark=dark(c);int ink=dark?0xffedf3f8:0xff1f2830,muted=dark?0xffc5d3de:0xff465765,accent=ThemeColors.accent(c,dark);LocalDate today=LocalDate.now();
+        if(ids.length==0)return;boolean dark=dark(c);int ink=dark?0xffedf3f8:0xff1f2830,muted=dark?0xffc5d3de:0xff465765,accent=ThemeColors.accent(c,dark);LocalDate today=LocalDate.now();
         String style=prefs(c).getString("widget_background","glass");
         String weather=OpenWeatherSources.cached(c,"");
         Bitmap background=style.equals("solid")?null:glassBackground(c,style,dark,accent);
@@ -67,6 +67,7 @@ public final class AgendaWidget extends AppWidgetProvider {
             }catch(RuntimeException ignored){}
         }
     }
+    static void schedule(Context c,AppWidgetManager m){AlarmManager alarms=c.getSystemService(AlarmManager.class);if(m.getAppWidgetIds(new ComponentName(c,AgendaWidget.class)).length+m.getAppWidgetIds(new ComponentName(c,TwoDayWidget.class)).length==0)alarms.cancel(progressIntent(c));else alarms.set(AlarmManager.ELAPSED_REALTIME,android.os.SystemClock.elapsedRealtime()+15*60000L,progressIntent(c));}
     private static Bitmap glassBackground(Context c,String style,boolean dark,int accent){
         File file=style.equals("image")?WallpaperImages.widget(c):
                 style.equals("wallpaper")?WallpaperRules.selected(c):null;

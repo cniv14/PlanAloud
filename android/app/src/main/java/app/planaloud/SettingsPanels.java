@@ -36,7 +36,7 @@ public final class SettingsPanels {
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);
         form.addView(Ui.tile(a,"主界面栏目与列数","自定义栏目，笔记和收集箱默认隐藏",()->HomeLayout.show(a)));
-        form.addView(Ui.tile(a,"界面风格",UiStyle.neo(a)?"Neo · 时间轴与列表":"经典 · 原有首页与导航",()->UiStyle.show(a)));
+        form.addView(Ui.tile(a,"界面风格",UiStyle.description(a),()->UiStyle.show(a)));
         form.addView(Ui.tile(a,"界面与字体大小","分别调整界面缩放和字体大小",()->DisplaySettings.show(a)));
         Spinner floatingMask=TaskTypes.spinner(a,form,"悬浮窗透明遮罩",Arrays.asList("应用主题色（默认）","中性色"));
         floatingMask.setSelection("neutral".equals(p.getString(FloatingAssistant.MASK_COLOR,"theme"))?1:0);
@@ -62,7 +62,8 @@ public final class SettingsPanels {
         Ui.cell(a,pair,Ui.button(a,"应用样式",true,()->{try{int value=Integer.parseInt(tint.getText().toString());if(value<48||value>94)throw new Exception("遮罩需在 48–94%");String mode=modes.get(style.getSelectedItemPosition());if(mode.equals("image")&&!WallpaperImages.widget(a).isFile())throw new Exception("请先选择背景图");p.edit().putString("widget_layout",layout.getSelectedItemPosition()==0?"list":"grid").putString("widget_background",mode).putInt("widget_tint",value).apply();AgendaWidget.refresh(a);a.message("已更新桌面小组件");}catch(Exception e){a.message(e.getMessage());}}));
         Ui.cell(a,pair,Ui.button(a,"选择背景图",false,()->a.pickFile(120,"image/*")));
         toggle(page,"显示收集箱","显示待确认数量和最新内容。",p.getBoolean("widget_inbox",true),on->{p.edit().putBoolean("widget_inbox",on).apply();AgendaWidget.refresh(a);});
-        page.addView(Ui.button(a,"添加到桌面",false,()->{AppWidgetManager manager=AppWidgetManager.getInstance(a);if(manager.isRequestPinAppWidgetSupported()){manager.requestPinAppWidget(new ComponentName(a,AgendaWidget.class),null,null);a.message("请在桌面启动器中确认添加");}else a.message("请长按桌面 → 小组件 → 序言");}));
+        page.addView(Ui.text(a,"添加小组件",18,true));page.addView(Ui.help(a,"近期日程保留原有布局和自定义背景；今天与明天为独立深色双栏，左右两列可分别滚动。两种组件都支持直接完成事项。"));
+        for(Class<?> provider:new Class<?>[]{AgendaWidget.class,TwoDayWidget.class})page.addView(Ui.button(a,provider==AgendaWidget.class?"添加近期日程":"添加今天与明天",false,()->{AppWidgetManager manager=AppWidgetManager.getInstance(a);if(manager.isRequestPinAppWidgetSupported()){manager.requestPinAppWidget(new ComponentName(a,provider),null,null);a.message("请在桌面启动器中确认添加");}else a.message("请长按桌面 → 小组件 → 序言");}));
         page.addView(Ui.help(a,"玻璃使用半透明渐变、高光边缘与图片遮罩。桌面系统不允许小组件实时模糊下方内容。"));
     }
     public void weather(){

@@ -81,3 +81,12 @@ tasks.register('exportModuleClasspath') {
         output.text = configurations.releaseRuntimeClasspath.incoming.artifactView { attributes { attribute(org.gradle.api.attributes.Attribute.of("artifactType", String), "android-classes-jar") } }.files.files.collect { it.absolutePath }.join('\n')
     }
 }
+
+// One source of truth for both repository readers and the in-app AI help tool.
+tasks.register('generateFeatureGuide', Copy) {
+    from rootProject.file('../docs/功能说明.md')
+    rename { 'features.md' }
+    into layout.buildDirectory.dir('generated/featureGuideAssets/help')
+}
+android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/featureGuideAssets').get().asFile)
+tasks.named('preBuild').configure { dependsOn 'generateFeatureGuide' }

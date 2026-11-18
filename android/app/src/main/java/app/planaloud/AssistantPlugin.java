@@ -8,14 +8,16 @@ final class AssistantPlugin {
  private static android.content.SharedPreferences prefs(Context c){return c.getSharedPreferences("settings",0);}
  static void open(MainActivity a){open(a,null,null);}
  static void review(MainActivity a,JSONObject record,String prompt){try{open(a,Data.get(a).expanded(record),prompt);}catch(Exception e){a.message(e.getMessage());}}
- private static void open(MainActivity a,JSONObject context,String seed){
+ static void draft(MainActivity a,String text){open(a,null,null,text);}
+ private static void open(MainActivity a,JSONObject context,String seed){open(a,context,seed,null);}
+ private static void open(MainActivity a,JSONObject context,String seed,String draft){
   if(!DocumentPlugins.available(a,PACKAGE)){a.message("AI助手已停用，请在扩展管理中开启");ExtensionHub.show(a);return;}
   try{
    validateConfig(a);
    SharedPreferences p=prefs(a);
    Intent intent=DocumentPlugins.appearance(a,new Intent("app.planaloud.action.ASSISTANT")
        .setComponent(new ComponentName(a,PACKAGE+".MainActivity"))
-       .putExtra("dayflow_protocol",2).putExtra("dayflow_seed_message",seed).putExtra("dayflow_review_only",context!=null)
+       .putExtra("dayflow_input_draft",draft).putExtra("dayflow_protocol",2).putExtra("dayflow_seed_message",seed).putExtra("dayflow_review_only",context!=null)
        .putExtra("dayflow_timetable",context!=null&&context.has("timetable_config"))
        .putExtra("dayflow_model",p.getString("model","")).putExtra("dayflow_provider",p.getString("ai_provider","自定义")));
    if(ThemeColors.usesProvider(a))intent.putExtra("dayflow_palette_style",ProviderAppearance.current(p).style);

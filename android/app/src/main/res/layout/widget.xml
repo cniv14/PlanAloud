@@ -14,7 +14,7 @@
                 <TextClock android:layout_width="wrap_content" android:layout_height="wrap_content" android:format12Hour="HH:mm" android:format24Hour="HH:mm" android:textSize="10sp" android:id="@+id/widget_clock"/>
                 <TextView android:id="@+id/widget_day_progress_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:textSize="10sp"/>
             </LinearLayout>
-            <ImageView android:id="@+id/widget_event_timeline" android:layout_width="match_parent" android:layout_height="24dp" android:scaleType="fitXY" android:contentDescription="今日事件彩色时间段"/>
+            <ImageView android:id="@+id/widget_event_timeline" android:layout_width="match_parent" android:layout_height="8dp" android:scaleType="fitXY" android:contentDescription="今日事件彩色时间段"/>
         </LinearLayout>
         <TextView android:id="@+id/widget_inbox" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="4dp" android:maxLines="1" android:ellipsize="end" android:textSize="12sp"/>
         <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
