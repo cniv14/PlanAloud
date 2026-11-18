@@ -54,7 +54,7 @@ public final class SettingsPanels {
     }
     void widget(Runnable back){
         LinearLayout page=a.fullPage("桌面小组件",back);page.addView(Ui.text(a,"桌面小组件",24,true));
-        page.addView(Ui.help(a,"单列展开标题、时间、截止倒计时、地点和备注。两列为紧凑排布，窄尺寸自动使用单列。"));
+        page.addView(Ui.help(a,"两种小组件都只显示标题、时间和地点，不展示正文与备注。近期日程支持单列／两列，窄尺寸自动使用单列。"));
         Spinner layout=TaskTypes.spinner(a,page,"排布",Arrays.asList("单列","矩阵 · 两列"));layout.setSelection("grid".equals(p.getString("widget_layout","grid"))?1:0);
         List<String> modes=Arrays.asList("glass","solid","image","wallpaper");Spinner style=TaskTypes.spinner(a,page,"背景样式",Arrays.asList("液态玻璃","主题实色","自选图片 + 玻璃","跟随应用壁纸 + 玻璃"));style.setSelection(Math.max(0,modes.indexOf(p.getString("widget_background","glass"))));
         TextInputEditText tint=Ui.field(a,page,"玻璃底层遮罩 · 48–94%",Integer.toString(p.getInt("widget_tint",73)),false);tint.setInputType(InputType.TYPE_CLASS_NUMBER);

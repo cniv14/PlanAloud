@@ -32,15 +32,8 @@ public final class AgendaCollection extends RemoteViewsService {
                 default: shade=dark?R.drawable.widget_glass_dark:R.drawable.widget_glass;
             }
             v.setInt(R.id.widget_item,"setBackgroundResource",shade);
-            v.setTextViewText(R.id.widget_item_title,r.optString("title"));String plan=PlanTime.planning(r);
-            String meta=PlanTime.taskLabel(r,now.toLocalDate(),false,now);
-            if(detailed){
-                if(r.optString("start_at").isEmpty()&&!r.optString("due_date").isEmpty()&&!PlanTime.countdown(r,now).isEmpty())
-                    meta+="\n截止 "+PlanningFields.deadlineLabel(r);
-                if(!plan.isEmpty())meta+="\n"+plan;
-                if(!r.optString("location").isEmpty())meta+="\n"+r.optString("location");
-                if(!r.optString("content").isEmpty())meta+="\n"+r.optString("content");
-            }else if(!plan.isEmpty())meta+=" · "+plan;
+            v.setTextViewText(R.id.widget_item_title,r.optString("title"));
+            String meta=DayAgenda.meta(r,now.toLocalDate());
             v.setTextViewText(R.id.widget_item_meta,meta);
             v.setTextColor(R.id.widget_item_title,dark?0xffeef5fa:0xff1b2730);v.setTextColor(R.id.widget_item_meta,dark?0xffc8d7e4:0xff445664);v.setTextColor(R.id.widget_item_done,ThemeColors.accent(c,dark));
             Intent row=new Intent().putExtra("record_id",r.optString("id")).putExtra("series_id",r.optString("series_id")).putExtra("occurrence_date",r.optString("occurrence_date"));

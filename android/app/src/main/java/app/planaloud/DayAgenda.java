@@ -14,5 +14,5 @@ final class DayAgenda {
         }
         rows.sort(Comparator.comparing((JSONObject r)->PlanTime.start(r),Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(r->r.optString("title")));return rows;
     }
-    static String meta(JSONObject r,LocalDate date){String when=PlanTime.dailyLabel(r,date);String location=r.optString("location");return when+(location.isEmpty()?"":"  "+location);}
+    static String meta(JSONObject r,LocalDate date){String when=r.optString("start_at").isEmpty()&&r.optString("due_date").isEmpty()?"时间待定":PlanTime.dailyLabel(r,date);String location=r.optString("location");return when+(location.isEmpty()?"":"  "+location);}
 }
