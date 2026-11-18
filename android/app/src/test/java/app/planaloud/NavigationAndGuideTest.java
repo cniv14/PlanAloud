@@ -59,7 +59,7 @@ public class NavigationAndGuideTest {
     @Test public void dispatchedSwipesUseVisiblePagesAndKeepSelection()throws Exception{
         launch(true);BottomNavigationView nav=find(activity.getWindow().getDecorView(),BottomNavigationView.class);
         for(int id:new int[]{100,102,104}){
-            android.graphics.Rect bounds=contentBounds();float x=bounds.centerX()+120,y=bounds.top+Ui.dp(activity,6);gesture(x,y,x-240,y);
+            android.graphics.Rect bounds=contentBounds();float x=bounds.centerX()+120,y=bounds.top+Ui.dp(activity,id==102?58:6);gesture(x,y,x-240,y);
             assertEquals(id,nav.getSelectedItemId());assertTrue(nav.getMenu().findItem(id).isChecked());
         }
         android.graphics.Rect bounds=contentBounds();float x=bounds.centerX()-120,y=bounds.top+Ui.dp(activity,6);gesture(x,y,x+240,y);assertEquals(102,nav.getSelectedItemId());

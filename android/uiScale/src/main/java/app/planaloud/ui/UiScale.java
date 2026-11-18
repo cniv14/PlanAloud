@@ -16,5 +16,5 @@ public final class UiScale {
         if(source.smallestScreenWidthDp>0)out.smallestScreenWidthDp=Math.round(source.smallestScreenWidthDp/scale);
         out.fontScale=(source.fontScale>0?source.fontScale:1)*fontPercent(font)/100f;return out;
     }
-    public static Context wrap(Context base){android.content.SharedPreferences p=base.getSharedPreferences("settings",0);int ui=interfacePercent(p.getInt("ui_scale",100)),font=fontPercent(p.getInt("font_scale",100));return ui==100&&font==100?base:base.createConfigurationContext(configuration(base.getResources().getConfiguration(),ui,font));}
+    public static Context wrap(Context base){DisplayTrial.recoverIfExpired(base);android.content.SharedPreferences p=base.getSharedPreferences("settings",0);int ui=interfacePercent(p.getInt("ui_scale",100)),font=fontPercent(p.getInt("font_scale",100));return ui==100&&font==100?base:base.createConfigurationContext(configuration(base.getResources().getConfiguration(),ui,font));}
 }

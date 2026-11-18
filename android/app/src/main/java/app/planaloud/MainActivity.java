@@ -35,7 +35,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     public SharedPreferences prefs;public EditorPanel editorState;public NoteEditor noteState;public LocationWeather locationWeather;
-    private com.google.android.material.button.MaterialButton agentBar;private LinearLayout shell,agentRow;private FrameLayout content;private BottomNavigationView navigationBar;private LinearProgressIndicator progress;private Backdrop backdrop;private boolean selectingTab,handlingNavigationTap,rootPage;private int navigationMask=-1;private PageSwipe pageSwipe;Onboarding onboarding;private String screenName="";private long screenGeneration;
+    private com.google.android.material.button.MaterialButton agentBar;private LinearLayout shell,agentRow;private FrameLayout content;private BottomNavigationView navigationBar;private LinearProgressIndicator progress;private Backdrop backdrop;private boolean selectingTab,handlingNavigationTap,rootPage;private int navigationMask=-1;private PageSwipe pageSwipe;Onboarding onboarding;DisplaySettings.TrialPrompt displayTrial;private String screenName="";private long screenGeneration;
     private String tab="agenda";private boolean dayView,busy,weekPreview;private int transitionDirection,scheduleScrollY;private ScrollView scheduleScroll;private LocalDate selected=LocalDate.now(),weekStart=LocalDate.now();private Runnable backAction;
     private String moreFeaturesTab, moreFeaturesQuery="";
     private int moreFeaturesScroll;
@@ -108,9 +108,9 @@ public final class MainActivity extends AppCompatActivity {
             state.putInt("more_features_schedule_scroll",moreFeaturesScheduleScroll);
         }
         if(noteState!=null){state.putString("editor_file",EditorSnapshot.write(this,noteState.draft()));if(noteState.externalUri()!=null){state.putString("md_uri",noteState.externalUri().toString());state.putBoolean("md_writable",noteState.externalWritable());}}else if(editorState!=null)state.putString("editor_file",EditorSnapshot.write(this,editorState.draft()));super.onSaveInstanceState(state);}
-    protected void onResume(){super.onResume();if(Updates.resumePending(this))return;SyncJob.configure(this);FocusTimer.restore(this);if(editorState==null&&noteState==null&&backAction==null&&"agenda".equals(tab))home();backdrop.active(true);ReminderReceiver.refresh(this);if(prefs.getBoolean("auto_location",false)&&checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED&&System.currentTimeMillis()-prefs.getLong("weather_updated",0)>6L*3600000)locationWeather.request();}
+    protected void onResume(){super.onResume();if(DisplaySettings.resumeTrial(this))return;if(Updates.resumePending(this))return;SyncJob.configure(this);FocusTimer.restore(this);if(editorState==null&&noteState==null&&backAction==null&&"agenda".equals(tab))home();backdrop.active(true);ReminderReceiver.refresh(this);if(prefs.getBoolean("auto_location",false)&&checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED&&System.currentTimeMillis()-prefs.getLong("weather_updated",0)>6L*3600000)locationWeather.request();}
     protected void onPause(){if(noteState!=null)noteState.keepDraft();backdrop.active(false);locationWeather.cancel();super.onPause();}
-    protected void onDestroy(){worker.shutdown();backdrop.release();super.onDestroy();}
+    protected void onDestroy(){DisplaySettings.dismissTrial(this);worker.shutdown();backdrop.release();super.onDestroy();}
     public void message(String value){if(value!=null&&!isDestroyed())Snackbar.make(shell,value,Snackbar.LENGTH_LONG).show();}
     public interface Work{String run()throws Exception;}
     public void job(Work work,Runnable after){job(work,after,null);}
@@ -179,7 +179,7 @@ public final class MainActivity extends AppCompatActivity {
     }
     private void renderHome(){if(navigationBar!=null)refreshNavigation();editorState=null;noteState=null;if(UiStyle.neo(this)&&tab.equals("agenda")){NeoHome.show(this,weekStart);return;}String name=tab.equals("agenda")?"今天":tab.equals("note")?"笔记":tab.equals("inbox")?"收集箱":tab.equals("course")?"日程":"设置";scaffold(name,null,true);try{LinearLayout hot=Ui.column(this);if(HotUpdates.render(this,tab,hot)){homeForm().addView(hot);return;}if(tab.equals("agenda")||tab.equals("course"))schedule();else if(tab.equals("settings"))new SettingsPanels(this).root(homeForm());else recordList();}catch(Exception e){message("读取失败："+e.getMessage());}}
     private void schedule()throws Exception{
-        LinearLayout page=homeForm();
+        LinearLayout page=weekPreview&&!tab.equals("course")?fixedWeekForm():homeForm();
         if(tab.equals("course")){
             ScheduleScreen.show(this,page,selected);
             ScrollView scroll=(ScrollView)page.getParent();scheduleScroll=scroll;
@@ -198,7 +198,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout actions=Ui.row(this);page.addView(actions);Ui.cell(this,actions,Ui.button(this,"＋ 新建待办",true,()->newRecord("task")));Ui.cell(this,actions,Ui.button(this,"周预览",false,()->showWeek(today)));
         if(!prefs.getBoolean("reduce_motion",false)){Ui.enter(actions,1);}DailyTasks.today(this,page);
     }
-    void changeUiStyle(String style){prefs.edit().putString("ui_style",style.equals("neo")?"neo":"classic").commit();tab="agenda";weekPreview=false;moreFeaturesTab=null;screenName="";recreate();}
+    void changeUiStyle(String style){if(!app.planaloud.ui.DisplayTrial.begin(this,prefs.getInt("ui_scale",100),prefs.getInt("font_scale",100),style)){message("界面风格未改变");return;}tab="agenda";weekPreview=false;moreFeaturesTab=null;screenName="";recreate();}
     void neoViewChanged(){home();}
     void showWeek(LocalDate start){weekStart=start;weekPreview=true;tab="agenda";transitionDirection=1;renderHome();}
     void openPage(String name){tab=name;weekPreview=false;renderHome();}
@@ -331,6 +331,7 @@ public final class MainActivity extends AppCompatActivity {
     public void notificationPermission(){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},200);}
     public void reminderPermission(){if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){pendingExactAlarm=true;requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},200);}else exactPermission();}
     public void exactPermission(){if(Build.VERSION.SDK_INT>=31&&!AlarmSound.exact(this))try{startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:"+getPackageName())));}catch(Exception e){message("请在系统设置中允许闹钟与提醒，否则提醒可能延迟");}}
+    private LinearLayout fixedWeekForm(){LinearLayout page=Ui.column(this);page.setPadding(Ui.dp(this,8),Ui.dp(this,4),Ui.dp(this,8),0);page.setTag("classic-week-page");content.addView(page,new FrameLayout.LayoutParams(-1,-1));return page;}
     public LinearLayout homeForm(){ScrollView scroll=new ScrollView(this);LinearLayout form=Ui.padded(this);scroll.addView(form);content.addView(scroll);if(UiStyle.neo(this))NeoHome.returnBar(this,form);return form;}
     public void checkUpdates(){if(busy)return;busy=true;worker.execute(()->{try{JSONObject info=Updates.check(this);runOnUiThread(()->{busy=false;if(isDestroyed())return;if(info==null)message("当前已是最新版本");else new SettingsPanels(this).showUpdate(info);});}catch(Exception e){runOnUiThread(()->{busy=false;message(e.getMessage());});}});}
     public void pickFile(int code,String mime){startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime),code);}

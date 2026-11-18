@@ -11,6 +11,7 @@ final class WeekSchedule {
     final LocalDate first;
     final List<List<List<JSONObject>>> days=new ArrayList<>();
     final List<List<JSONObject>> allDay=new ArrayList<>();
+    final List<JSONObject> backgroundProjects=new ArrayList<>();
     final int[] counts=new int[4];int maxAll;
     WeekSchedule(LocalDate first){this.first=first;for(int d=0;d<7;d++){List<List<JSONObject>> bands=new ArrayList<>();for(int b=0;b<4;b++)bands.add(new ArrayList<>());days.add(bands);allDay.add(new ArrayList<>());}}
     static WeekSchedule load(Context c,LocalDate first)throws Exception{
@@ -25,6 +26,7 @@ final class WeekSchedule {
             }
             for(int n=0;n<deadlines.length();n++){JSONObject r=deadlines.getJSONObject(n);if(due.add(r.optString("id")))week.days.get(d).get(3).add(r);}
         }
+        JSONArray projects=db.list("project",500);for(int i=0;i<projects.length();i++){JSONObject r=projects.getJSONObject(i);if(r.optString("completed").isEmpty()&&r.optString("recurrence").isEmpty()&&!"waiting".equals(r.optString("activation"))&&!PlanTime.cancelled(r))week.backgroundProjects.add(r);}
         week.count();return week;
     }
     void count(){for(int d=0;d<7;d++){maxAll=Math.max(maxAll,allDay.get(d).size());for(int b=0;b<4;b++)counts[b]=Math.max(counts[b],days.get(d).get(b).size());}}

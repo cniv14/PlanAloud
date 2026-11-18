@@ -16,8 +16,8 @@ final class WeekGeometry {
         this.week=week;
         for(int d=0;d<7;d++){
             LocalDateTime midnight=week.first.plusDays(d).atStartOfDay();List<Timed> timed=new ArrayList<>();days.add(timed);List<JSONObject> due=new ArrayList<>();deadlines.add(due);
-            for(int b=0;b<3;b++)for(JSONObject r:week.days.get(d).get(b))try{int from=(int)Math.max(0,Duration.between(midnight,PlanTime.start(r)).toMinutes()),to=(int)Math.min(1440,Duration.between(midnight,PlanTime.end(r)).toMinutes());if(to<=from)continue;timed.add(new Timed(r,from,to));firstMinute=Math.min(firstMinute,from/60*60);lastMinute=Math.max(lastMinute,(to+59)/60*60);}catch(RuntimeException ignored){}
-            for(JSONObject r:week.days.get(d).get(3))if(r.optString("start_at").isEmpty())due.add(r);
+            for(int b=0;b<3;b++)for(JSONObject r:week.days.get(d).get(b))try{if(WeekSpans.eligible(r))continue;int from=(int)Math.max(0,Duration.between(midnight,PlanTime.start(r)).toMinutes()),to=(int)Math.min(1440,Duration.between(midnight,PlanTime.end(r)).toMinutes());if(to<=from)continue;timed.add(new Timed(r,from,to));firstMinute=Math.min(firstMinute,from/60*60);lastMinute=Math.max(lastMinute,(to+59)/60*60);}catch(RuntimeException ignored){}
+            for(JSONObject r:week.days.get(d).get(3))if(r.optString("start_at").isEmpty()&&!WeekSpans.eligible(r))due.add(r);
             timed.sort(Comparator.comparingInt((Timed t)->t.start).thenComparingInt(t->t.end));
             List<Timed> group=new ArrayList<>();List<Integer> ends=new ArrayList<>();int groupEnd=-1;
             for(Timed event:timed){
