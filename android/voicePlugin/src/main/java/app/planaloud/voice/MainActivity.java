@@ -5,6 +5,8 @@ import java.io.*;import java.net.*;import java.nio.*;import java.nio.charset.Sta
 
 /** Voice plugin entry point. Transcription fills the composer and never executes schedules. */
 public final class MainActivity extends AppCompatActivity {
+ @Override protected void attachBaseContext(android.content.Context base){super.attachBaseContext(app.planaloud.ui.UiScale.wrap(base));}
+
  private final ExecutorService worker=Executors.newSingleThreadExecutor();private volatile boolean recording,closed,recognize;private volatile AudioRecord microphone;private Spinner provider;private EditText endpoint,model,key,deepseekKey;private TextView status;private MaterialButton capture;private boolean settingsOnly;private volatile boolean processing;
  private SharedPreferences prefs(){return getSharedPreferences("settings",0);}private int selectedProvider(){return new int[]{3,0,1}[provider.getSelectedItemPosition()];}
  public void onCreate(Bundle saved){super.onCreate(saved);VoiceSettings.migrate(this);settingsOnly=getIntent().getBooleanExtra("settings_only",false);LinearLayout page=new LinearLayout(this);page.setOrientation(1);int pad=Math.round(20*getResources().getDisplayMetrics().density);page.setPadding(pad,pad,pad,pad);ScrollView scroll=new ScrollView(this);scroll.addView(page);setContentView(scroll);TextView title=new TextView(this);title.setText("语音识别模块");title.setTextSize(24);page.addView(title);

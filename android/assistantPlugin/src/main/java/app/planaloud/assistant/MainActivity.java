@@ -5,6 +5,8 @@ import org.json.*;import java.io.*;import java.util.*;import java.util.concurren
 
 /** In-task native conversation. No daemon, microphone polling, HTTP port or separate account. */
 public final class MainActivity extends AppCompatActivity {
+ @Override protected void attachBaseContext(android.content.Context base){super.attachBaseContext(app.planaloud.ui.UiScale.wrap(base));}
+
  private final ExecutorService worker=Executors.newSingleThreadExecutor();private volatile boolean closed;private boolean busy,approvalLoaded;private com.google.android.material.materialswitch.MaterialSwitch approval;private String resultDate="";private ChatEngine engine;private LinearLayout messages;private ScrollView scroll;private EditText input;private MaterialButton send,voice,image,undo;private TextView status;private SlashCommands slash;private LinearLayout attachmentRow;private ImageView attachmentPreview;private TextView attachmentLabel;private final ArrayList<String> pendingImages=new ArrayList<>(),pendingImageFiles=new ArrayList<>(),pendingDocuments=new ArrayList<>(),pendingDocumentNames=new ArrayList<>();private final LinkedHashSet<String> created=new LinkedHashSet<>();private final JSONArray transcript=new JSONArray();
  public void onCreate(Bundle state){
   getDelegate().setLocalNightMode(getIntent().getBooleanExtra("dayflow_dark",false)?androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES:androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO);super.onCreate(state);androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(),false);

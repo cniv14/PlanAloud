@@ -10,3 +10,5 @@ include ':markdownPlugin', ':almanacPlugin'
 include ':assistantPlugin'
 
 include ':voicePlugin'
+
+include ':uiScale'

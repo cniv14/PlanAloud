@@ -135,7 +135,7 @@ public final class FloatingAssistant extends Service {
         boolean dark=AgendaWidget.dark(this);
         Configuration config=new Configuration();
         config.uiMode=dark?Configuration.UI_MODE_NIGHT_YES:Configuration.UI_MODE_NIGHT_NO;
-        theme=new ContextThemeWrapper(createConfigurationContext(config),R.style.Theme_DayFlow);
+        theme=new ContextThemeWrapper(app.planaloud.ui.UiScale.wrap(this).createConfigurationContext(config),R.style.Theme_DayFlow);
         if(ThemeColors.usesProvider(this))
             theme.getTheme().applyStyle(ProviderAppearance.current(getSharedPreferences("settings",0)).style,true);
         accent=ThemeColors.accent(this,dark);

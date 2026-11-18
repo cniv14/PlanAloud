@@ -25,3 +25,6 @@
 
 # Separately loaded voice modules use the host secret bridge by its stable reflection names.
 -keep class app.planaloud.Secrets { public static *; }
+
+# Embedded modules resolve the shared display wrapper against the host.
+-keep class app.planaloud.ui.UiScale { public *; }

@@ -8,8 +8,8 @@ android {
         applicationId 'app.planaloud'
         minSdk 26
         targetSdk 36
-        versionCode 154
-        versionName '1.5.4'
+        versionCode 155
+        versionName '1.5.5'
         testInstrumentationRunner 'app.planaloud.SmokeTest'
     }
     compileOptions {
@@ -49,6 +49,8 @@ tasks.register('generateThirdPartyNotices', Copy) {
 }
 tasks.named('preBuild').configure { dependsOn 'generateThirdPartyNotices' }
 dependencies {
+ implementation project(':uiScale');
+
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.16.1"
     implementation project(':assistantPlugin')

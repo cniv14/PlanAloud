@@ -36,6 +36,7 @@ public final class SettingsPanels {
     }
     public void appearance(){LinearLayout form=a.fullPage("外观与主题",a::home);form.addView(Ui.text(a,"主题",18,true));ChipGroup group=new ChipGroup(a);group.setSingleSelection(true);group.setSelectionRequired(true);String[] labels={"跟随系统","浅色","深色"},values={"system","light","dark"};for(int i=0;i<3;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(labels[i]);chip.setCheckable(true);chip.setChecked(p.getString("theme","system").equals(value));chip.setOnClickListener(v->{p.edit().putString("theme",value).apply();DayFlowApp.applyTheme(value);AgendaWidget.refresh(a);});group.addView(chip);}form.addView(group);
         form.addView(Ui.tile(a,"主界面栏目与列数","自定义栏目，笔记和收集箱默认隐藏",()->HomeLayout.show(a)));
+        form.addView(Ui.tile(a,"界面与字体大小","分别调整界面缩放和字体大小",()->DisplaySettings.show(a)));
         Spinner floatingMask=TaskTypes.spinner(a,form,"悬浮窗透明遮罩",Arrays.asList("应用主题色（默认）","中性色"));
         floatingMask.setSelection("neutral".equals(p.getString(FloatingAssistant.MASK_COLOR,"theme"))?1:0);
         floatingMask.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){

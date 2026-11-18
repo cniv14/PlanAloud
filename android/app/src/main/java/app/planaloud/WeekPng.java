@@ -28,7 +28,7 @@ final class WeekPng {
         Uri target=data.getData();a.job(()->{Bitmap image=null;try{image=render(WeekSchedule.load(a,first),false);try(OutputStream out=a.getContentResolver().openOutputStream(target,"wt")){if(out==null)throw new IOException("无法打开保存位置");if(!image.compress(Bitmap.CompressFormat.PNG,100,out))throw new IOException("PNG 编码失败");}return "已导出完整周日程 PNG";}catch(OutOfMemoryError memory){throw new IOException("周日程过大，无法生成图片，请减少单周事项后重试",memory);}finally{if(image!=null)image.recycle();}},null);
     }
     static void help(MainActivity a){new MaterialAlertDialogBuilder(a).setTitle("周预览怎么用")
-        .setMessage("① 从今天点「周预览」，用上一周／下一周选择日期。\n\n② 在表格中横向、纵向或斜向拖动；顶部星期行和左侧时段列固定对齐。点事项看详情，长按查看快捷操作。\n\n③ 全天事项用当天的连续浅色底表示，时段事项排在其中。「另有…项」可查看未展开的事项。\n\n④ 点「导出 PNG」，在系统文件选择器中选择文件夹并保存。图片包含当前所选七天的完整日程，含未在屏幕展开的事项，不受滚动位置影响。取消保存不会导出。\n\n⑤ 首页彩色进度条可点开查看事件与颜色；桌面小组件可直接勾选完成，无需打开界面。")
+        .setMessage("① 从今天点日程形状的「周预览」图标，用上一周／下一周选择日期。\n\n② 在表格中横向、纵向或斜向拖动；顶部星期行和左侧时段列固定对齐。点事项看详情，长按查看快捷操作。\n\n③ 周表按实际时间排布，默认 08:00–22:00，超出会自动延长。事件高度对应持续时间，重叠事件并排显示。全天事项作为当天的背景，侧栏可查看名称；只有截止日期的待办在底部细条中查看。\n\n④ 点「导出 PNG」，在系统文件选择器中选择文件夹并保存。图片包含当前所选七天的完整日程，含未在屏幕展开的事项，不受滚动位置影响。取消保存不会导出。\n\n⑤ 首页进度条用斜线连接事件名称，名称较多时可上下滑动右侧名称列，点击可查看完整信息；桌面小组件可直接勾选完成，无需打开界面。")
         .setPositiveButton("知道了",null).setNeutralButton("完整使用引导",(d,w)->Onboarding.show(a)).show();}
     static void previewExample(MainActivity a){Bitmap[] image={null};a.job(()->{image[0]=render(WeekSchedule.example(LocalDate.now()),true);return "示例已生成";},()->{
         ImageView preview=new ImageView(a);preview.setImageBitmap(image[0]);preview.setAdjustViewBounds(true);preview.setContentDescription("七天完整周日程 PNG 示例，不包含真实数据");ScrollView scroll=new ScrollView(a);scroll.addView(preview);new MaterialAlertDialogBuilder(a).setTitle("导出样式示例").setView(scroll).setMessage("实际导出：今天 → 周预览 → 导出 PNG → 选择保存位置。示例不会保存文件或修改你的日程。")
@@ -36,29 +36,35 @@ final class WeekPng {
     private static StaticLayout text(String value,TextPaint paint,int width){return StaticLayout.Builder.obtain(value,0,value.length(),paint,width).setIncludePad(false).setLineSpacing(3,1).build();}
     private static String entry(JSONObject record,LocalDate day,int band){String when=band<0?"全天":band==3?"截止 "+PlanningFields.deadlineLabel(record):PlanTime.dailyLabel(record,day);return when+"\n"+record.optString("title")+(record.optString("location").isEmpty()?"":"\n"+record.optString("location"));}
     static Bitmap render(WeekSchedule week,boolean example)throws IOException{
-        TextPaint ink=new TextPaint(Paint.ANTI_ALIAS_FLAG);ink.setColor(0xff202c3b);ink.setTextSize(24);
-        java.util.List<java.util.List<java.util.List<StaticLayout>>> blocks=new ArrayList<>();int[] heights={84,112,112,112,112};
-        for(int day=0;day<7;day++){
-            java.util.List<java.util.List<StaticLayout>> slots=new ArrayList<>();blocks.add(slots);
-            for(int slot=0;slot<5;slot++){
-                java.util.List<JSONObject> records=slot==0?week.allDay.get(day):week.days.get(day).get(slot-1);java.util.List<StaticLayout> items=new ArrayList<>();slots.add(items);int height=20;
-                for(JSONObject record:records){StaticLayout layout=text(entry(record,week.first.plusDays(day),slot-1),ink,COLUMN-28);items.add(layout);height+=layout.getHeight()+26;}
-                heights[slot]=Math.max(heights[slot],height);
-            }
+        WeekGeometry geometry=new WeekGeometry(week);TextPaint ink=new TextPaint(Paint.ANTI_ALIAS_FLAG);ink.setColor(0xff202c3b);ink.setTextSize(22);
+        java.util.List<java.util.List<StaticLayout>> appendix=new ArrayList<>();int appendixHeight=0;
+        for(int d=0;d<7;d++){
+            java.util.List<StaticLayout> items=new ArrayList<>();appendix.add(items);int total=0;
+            for(JSONObject r:week.allDay.get(d)){StaticLayout block=text(entry(r,week.first.plusDays(d),-1),ink,COLUMN-24);items.add(block);total+=block.getHeight()+22;}
+            for(WeekGeometry.Timed event:geometry.days.get(d)){StaticLayout block=text(entry(event.record,week.first.plusDays(d),0),ink,COLUMN-24);items.add(block);total+=block.getHeight()+22;}
+            for(JSONObject r:geometry.deadlines.get(d)){StaticLayout block=text(entry(r,week.first.plusDays(d),3),ink,COLUMN-24);items.add(block);total+=block.getHeight()+22;}
+            appendixHeight=Math.max(appendixHeight,total);
         }
-        int height=216;for(int row:heights){if(row>10000||height>10000-row)throw new IOException("周日程内容过多，图片高度超过限制；请减少单周事项后再导出");height+=row;}
+        int top=104,header=80,chartTop=top+header,chartBottom=chartTop+geometry.minutes(),appendixTop=chartBottom+92,height=appendixTop+appendixHeight+32;
+        if(height>10000)throw new IOException("周日程内容过多，暂时无法生成单张图片");
         Bitmap image=Bitmap.createBitmap(WIDTH,height,Bitmap.Config.ARGB_8888);Canvas canvas=new Canvas(image);canvas.drawColor(Color.WHITE);Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);paint.setColor(0xff202c3b);paint.setTextSize(32);paint.setTypeface(Typeface.DEFAULT_BOLD);
         canvas.drawText(example?"周日程导出示例（非真实数据）":"序言 · 周日程",MARGIN,44,paint);paint.setTextSize(23);paint.setTypeface(Typeface.DEFAULT);canvas.drawText(week.first+" — "+week.first.plusDays(6),MARGIN,80,paint);
-        int top=104,header=80;paint.setColor(0xffedf2f8);canvas.drawRect(MARGIN,top,WIDTH-MARGIN,top+header,paint);paint.setTextSize(23);paint.setColor(0xff202c3b);canvas.drawText("时段",MARGIN+16,top+46,paint);
-        for(int day=0;day<7;day++){int x=MARGIN+LEFT+day*COLUMN;LocalDate date=week.first.plusDays(day);canvas.drawText(date.format(DateTimeFormatter.ofPattern("EEE",Locale.CHINA)),x+12,top+30,paint);canvas.drawText(date.format(DateTimeFormatter.ofPattern("M/d")),x+12,top+62,paint);}
-        int y=top+header;String[] labels={"全天","上午","下午","晚上","截止"};
-        for(int day=0;day<7;day++){if(!week.allDay.get(day).isEmpty()){paint.setColor(0xffedf4ea);canvas.drawRect(MARGIN+LEFT+day*COLUMN,y,MARGIN+LEFT+(day+1)*COLUMN,height-32,paint);}}
-        for(int slot=0;slot<5;slot++){
-            paint.setColor(0xff202c3b);canvas.drawText(labels[slot],MARGIN+16,y+38,paint);
-            for(int day=0;day<7;day++){float x=MARGIN+LEFT+day*COLUMN+14,cy=y+12;for(StaticLayout block:blocks.get(day).get(slot)){if(slot>0){paint.setColor(0xffedf2fa);canvas.drawRoundRect(x-5,cy-5,x+COLUMN-23,cy+block.getHeight()+9,8,8,paint);}canvas.save();canvas.translate(x,cy);block.draw(canvas);canvas.restore();cy+=block.getHeight()+26;}}
-            paint.setColor(0xffb4c0ce);paint.setStrokeWidth(1);canvas.drawLine(MARGIN,y,WIDTH-MARGIN,y,paint);y+=heights[slot];
+        paint.setColor(0xffedf2f8);canvas.drawRect(MARGIN,top,WIDTH-MARGIN,chartTop,paint);paint.setColor(0xff202c3b);paint.setTextSize(23);canvas.drawText("时间",MARGIN+16,top+46,paint);
+        for(int d=0;d<7;d++){
+            int x=MARGIN+LEFT+d*COLUMN;LocalDate date=week.first.plusDays(d);paint.setColor(0xff202c3b);canvas.drawText(date.format(DateTimeFormatter.ofPattern("EEE",Locale.CHINA)),x+12,top+30,paint);canvas.drawText(date.format(DateTimeFormatter.ofPattern("M/d")),x+12,top+62,paint);
+            boolean all=!week.allDay.get(d).isEmpty();int rail=all?22:0;
+            if(all){paint.setColor(0xffedf4ea);canvas.drawRect(x,chartTop,x+COLUMN,chartBottom,paint);paint.setColor(0xff526648);paint.setTextSize(17);StringBuilder title=new StringBuilder("全天");for(JSONObject r:week.allDay.get(d))title.append(" · ").append(r.optString("title"));canvas.save();canvas.clipRect(x,chartTop,x+22,chartBottom);canvas.translate(x+17,chartTop+8);canvas.rotate(90);canvas.drawText(title.toString(),0,0,paint);canvas.restore();paint.setTextSize(23);}
+            for(WeekGeometry.Timed event:geometry.days.get(d)){
+                float width=(COLUMN-rail-8f)/event.lanes,left=x+rail+4+event.lane*width,y=chartTop+geometry.top(event,1),h=geometry.height(event,1);paint.setColor(0xffdfebfa);canvas.drawRoundRect(left,y,left+width-3,y+Math.max(2,h),5,5,paint);
+                TextPaint caption=new TextPaint(Paint.ANTI_ALIAS_FLAG);caption.setColor(0xff202c3b);caption.setTextSize(18);StaticLayout label=text(event.record.optString("title"),caption,Math.max(1,(int)width-10));canvas.save();canvas.clipRect(left,y,left+width-3,y+h);canvas.translate(left+3,y+2);label.draw(canvas);canvas.restore();
+            }
+            java.util.List<JSONObject> due=geometry.deadlines.get(d);paint.setColor(0xffedf2f8);canvas.drawRect(x,chartBottom+34,x+COLUMN,chartBottom+40,paint);if(!due.isEmpty()){ink.setTextSize(18);CharSequence name=TextUtils.ellipsize(due.get(0).optString("title")+(due.size()>1?" +"+(due.size()-1):""),ink,COLUMN-16,TextUtils.TruncateAt.END);canvas.drawText(name.toString(),x+8,chartBottom+26,ink);ink.setTextSize(22);}
         }
-        paint.setColor(0xffb4c0ce);paint.setStrokeWidth(1);canvas.drawLine(MARGIN,top,WIDTH-MARGIN,top,paint);canvas.drawLine(MARGIN,y,WIDTH-MARGIN,y,paint);canvas.drawLine(MARGIN,top,MARGIN,y,paint);for(int col=0;col<=7;col++){float x=MARGIN+LEFT+col*COLUMN;canvas.drawLine(x,top,x,y,paint);}
-        paint.setColor(0xff647487);paint.setTextSize(16);canvas.drawText("完整七天 · 已完成事项不展示 · 全天底色 / 时段安排",MARGIN,height-9,paint);return image;
+        paint.setTextSize(19);paint.setStrokeWidth(1);
+        for(int minute=geometry.firstMinute;minute<=geometry.lastMinute;minute+=60){float y=chartTop+minute-geometry.firstMinute;paint.setColor(0xffb4c0ce);canvas.drawLine(MARGIN+LEFT,y,WIDTH-MARGIN,y,paint);paint.setColor(minute<480||minute>1320?0xff437bb2:0xff647487);canvas.drawText(DayEvents.clock(minute),MARGIN+8,Math.min(chartBottom-3,Math.max(chartTop+18,y+7)),paint);}
+        paint.setColor(0xffb4c0ce);for(int col=0;col<=7;col++){float x=MARGIN+LEFT+col*COLUMN;canvas.drawLine(x,top,x,chartBottom+40,paint);}canvas.drawLine(MARGIN,top,WIDTH-MARGIN,top,paint);canvas.drawLine(MARGIN,chartBottom+40,WIDTH-MARGIN,chartBottom+40,paint);
+        paint.setColor(0xff647487);paint.setTextSize(18);canvas.drawText("截止",MARGIN+12,chartBottom+26,paint);paint.setTextSize(22);canvas.drawText("完整事项（含短时、重叠安排与截止待办）",MARGIN,appendixTop-16,paint);
+        for(int d=0;d<7;d++){float x=MARGIN+LEFT+d*COLUMN+12,y=appendixTop;for(StaticLayout block:appendix.get(d)){canvas.save();canvas.translate(x,y);block.draw(canvas);canvas.restore();y+=block.getHeight()+22;}}
+        paint.setColor(0xff647487);paint.setTextSize(16);canvas.drawText("按实际时间排布 · 默认 08:00–22:00，超出自动延长 · 已完成事项不展示",MARGIN,height-9,paint);return image;
     }
 }
