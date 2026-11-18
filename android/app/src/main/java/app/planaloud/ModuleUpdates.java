@@ -12,6 +12,8 @@ import java.util.*;
 /** Built-in fallback + signed optional code patch. Shared dependency/resources live in the base. */
 public final class ModuleUpdates {
  static final String[] IDS={"assistant","markdown","almanac","voice"};
+ // Same-version consolidated rebuild must reject older downloaded module entry points.
+ private static final long BUILTIN_MODULE_CODE=156002;
  private static Context context;private static final Map<String,ClassLoader> loaders=new HashMap<>();private static volatile String active;
  static String idForPackage(String pkg){for(String id:IDS)if(("app.planaloud."+id).equals(pkg))return id;return null;}
  static void init(Context c){context=c.getApplicationContext();UpdateSources.migrate(c);String failed=UpdateSources.prefs(c).getString("module_launching","");if(!failed.isEmpty())disable(failed,"上次模块未能启动，已使用内置版本");}
@@ -24,6 +26,7 @@ public final class ModuleUpdates {
  static JSONObject validate(Context c,String id,JSONObject e)throws Exception{
   JSONObject p=Updates.signedPayload(c,e);int base=c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionCode;
   if(!Arrays.asList(IDS).contains(id)||p.getInt("schema")!=1||!"android-module".equals(p.getString("platform"))||!id.equals(p.getString("id"))||p.getInt("api")!=1||p.getLong("version_code")<=0||p.getInt("min_app_code")>base||p.getInt("max_app_code")<base)throw new IOException("模块与当前基础版本不兼容");
+  if(p.getLong("version_code")<BUILTIN_MODULE_CODE)throw new IOException("模块早于当前本体，请更新模块或恢复内置版本");
   byte[] dex=Base64.decode(p.getString("dex"),Base64.NO_WRAP);if(dex.length<112||dex.length>8*1024*1024||dex[0]!='d'||dex[1]!='e'||dex[2]!='x'||dex[3]!='\n')throw new IOException("模块代码无效");StringBuilder hash=new StringBuilder();for(byte b:MessageDigest.getInstance("SHA-256").digest(dex))hash.append(String.format(Locale.ROOT,"%02x",b&255));if(!hash.toString().equals(p.getString("sha256")))throw new IOException("模块校验失败");return p;
  }
  private static final class Loader extends ClassLoader {

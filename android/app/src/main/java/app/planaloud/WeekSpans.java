@@ -18,6 +18,6 @@ final class WeekSpans {
         }catch(RuntimeException ignored){}
         spans.sort(Comparator.comparingInt((Span s)->s.first).thenComparingInt(s->s.last).thenComparing(s->s.record.optString("id")));List<Integer> ends=new ArrayList<>();for(Span s:spans){int lane=0;while(lane<ends.size()&&ends.get(lane)>=s.first)lane++;if(lane==ends.size())ends.add(s.last);else ends.set(lane,s.last);s.lane=lane;}lanes=ends.size();
     }
-    private static void add(Map<String,JSONObject> values,JSONObject r){if(eligible(r)&&r.optString("completed").isEmpty()&&!r.optBoolean("deleted"))values.put(r.optString("id",r.optString("title"))+"|"+r.optString("occurrence_date"),r);}
+    private static void add(Map<String,JSONObject> values,JSONObject r){if(eligible(r)&&!r.optBoolean("deleted"))values.put(r.optString("id",r.optString("title"))+"|"+r.optString("occurrence_date"),r);}
     boolean contains(int day){for(Span s:spans)if(s.first<=day&&day<=s.last)return true;return false;}
 }

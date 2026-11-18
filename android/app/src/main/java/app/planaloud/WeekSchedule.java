@@ -17,16 +17,16 @@ final class WeekSchedule {
     static WeekSchedule load(Context c,LocalDate first)throws Exception{
         WeekSchedule week=new WeekSchedule(first);Data db=Data.get(c);
         for(int d=0;d<7;d++){
-            LocalDate date=first.plusDays(d);Set<String> due=new HashSet<>();JSONArray scheduled=db.scheduled(date,date.plusDays(1),false),deadlines=db.deadlines(date);
+            LocalDate date=first.plusDays(d);Set<String> due=new HashSet<>();JSONArray scheduled=db.scheduled(date,date.plusDays(1),false),deadlines=db.deadlines(date,false,true);
             for(int n=0;n<scheduled.length();n++){
-                JSONObject r=scheduled.getJSONObject(n);if(!r.optString("completed").isEmpty()||"waiting".equals(r.optString("activation")))continue;
+                JSONObject r=scheduled.getJSONObject(n);if("waiting".equals(r.optString("activation")))continue;
                 if(r.optBoolean("all_day")){week.allDay.get(d).add(r);continue;}
                 if(r.optString("start_at").isEmpty()){if(due.add(r.optString("id")))week.days.get(d).get(3).add(r);continue;}
                 int hour=PlanTime.start(r).getHour();week.days.get(d).get(hour<12?0:hour<18?1:2).add(r);
             }
             for(int n=0;n<deadlines.length();n++){JSONObject r=deadlines.getJSONObject(n);if(due.add(r.optString("id")))week.days.get(d).get(3).add(r);}
         }
-        JSONArray projects=db.list("project",500);for(int i=0;i<projects.length();i++){JSONObject r=projects.getJSONObject(i);if(r.optString("completed").isEmpty()&&r.optString("recurrence").isEmpty()&&!"waiting".equals(r.optString("activation"))&&!PlanTime.cancelled(r))week.backgroundProjects.add(r);}
+        JSONArray projects=db.list("project",500);for(int i=0;i<projects.length();i++){JSONObject r=projects.getJSONObject(i);if(r.optString("recurrence").isEmpty()&&!"waiting".equals(r.optString("activation"))&&!PlanTime.cancelled(r))week.backgroundProjects.add(r);}
         week.count();return week;
     }
     void count(){for(int d=0;d<7;d++){maxAll=Math.max(maxAll,allDay.get(d).size());for(int b=0;b<4;b++)counts[b]=Math.max(counts[b],days.get(d).get(b).size());}}

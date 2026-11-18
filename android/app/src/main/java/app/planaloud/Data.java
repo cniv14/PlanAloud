@@ -242,9 +242,10 @@ public final class Data extends SQLiteOpenHelper {
         JSONArray result=new JSONArray();for(JSONObject r:rows)result.put(r);return result;
     }
     public synchronized JSONArray deadlines(LocalDate date)throws JSONException{return deadlines(date,false);}
-    public synchronized JSONArray deadlines(LocalDate date,boolean includeOverdue)throws JSONException{
+    public synchronized JSONArray deadlines(LocalDate date,boolean includeOverdue)throws JSONException{return deadlines(date,includeOverdue,false);}
+    public synchronized JSONArray deadlines(LocalDate date,boolean includeOverdue,boolean includeDone)throws JSONException{
         JSONArray result=new JSONArray();
-        try(Cursor cursor=getReadableDatabase().rawQuery("SELECT preview FROM records WHERE deleted=0 AND completed='' AND due_date<>'' AND due_date"+(includeOverdue?"<=?":"=?")+" AND kind IN ('task','event','course','project') AND recurrence='' ORDER BY title",new String[]{date.toString()})){
+        try(Cursor cursor=getReadableDatabase().rawQuery("SELECT preview FROM records WHERE deleted=0 "+(includeDone?"":"AND completed='' ")+"AND due_date<>'' AND due_date"+(includeOverdue?"<=?":"=?")+" AND kind IN ('task','event','course','project') AND recurrence='' ORDER BY title",new String[]{date.toString()})){
             while(cursor.moveToNext()){JSONObject r=new JSONObject(cursor.getString(0));if(!PlanTime.cancelled(r)&&!"waiting".equals(r.optString("activation")))result.put(r);}
         }
         return result;
