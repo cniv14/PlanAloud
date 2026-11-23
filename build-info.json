@@ -1,0 +1,12 @@
+{
+  "version": "1.5.10",
+  "version_code": 160,
+  "source_commit": "9f3f8e9df5fb9b5eb74ca30be110df7ab0f550df",
+  "source_branch": "fix/widget-edges-schedule",
+  "apk": "PlanAloud-1.5.10-unsigned.apk",
+  "sha256": "50c7b85424bb609b6050c7e21fafa5c4a4e660fb874ae4b8a9789fce0db22b56",
+  "signed": false,
+  "regression_tests": 7,
+  "regression_failures": 0,
+  "lint_errors": 0
+}
