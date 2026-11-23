@@ -19,8 +19,8 @@ final class CommandScreen {
     private static void route(String id,String name,Consumer<MainActivity> action){routes.put(id,new Route(name,action));}
     static {
         route("today","今天",a->a.openPage("agenda"));route("week","一周预览",a->a.showWeek(LocalDate.now()));route("calendar","月历与日程",a->a.openSchedule(LocalDate.now()));
-        route("tasks","全部待办",MainActivity::tasks);route("agenda-editor","日程批量编辑",a->ScheduleEditor.show(a,LocalDate.now(),false));
-        route("courses","课程表",ScheduleScreen::courses);route("course-screenshot","截图识别课表",a->a.pickFile(110,"image/*"));route("course-draft","校对课表草稿",a->new TimetableCapture(a,null));route("course-import","导入本地课表",a->a.pickFile(103,"*/*"));
+        route("tasks","全部待办",MainActivity::tasks);route("agenda-editor","日程批量编辑",a->ScheduleEditor.show(a,LocalDate.now()));
+        route("schedule-import","导入日程",a->WebImports.show(a));
         route("notes","笔记",a->a.openPage("note"));route("notes-import","导入 Markdown",a->a.pickFile(108,"*/*"));route("notes-export","导出全部 Markdown",MainActivity::exportAllNotes);route("note-drafts","恢复笔记草稿",NoteDrafts::show);
         route("inbox","收集箱",MainActivity::showInbox);route("inbox-pending","待批准",InboxReview::pending);route("trash","回收站",a->InboxReview.trash(a,0));route("inbox-ai","收集箱交给 AI",InboxAgent::quick);route("capture-rules","通知与群聊收集规则",GroupCaptureSettings::show);
         route("assistant","AI 对话",AssistantPlugin::open);route("floating-assistant","悬浮助手",FloatingAssistant::toggle);route("ai-settings","AI 模型与 API 配置",AiSettings::show);

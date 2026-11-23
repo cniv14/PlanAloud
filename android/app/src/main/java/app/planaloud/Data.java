@@ -58,7 +58,7 @@ public final class Data extends SQLiteOpenHelper {
     public synchronized void bridgeCommit(String bridge){SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{db.execSQL("INSERT OR REPLACE INTO bridge_base SELECT bridge,id,body FROM bridge_stage WHERE bridge=?",new Object[]{bridge});db.delete("bridge_stage","bridge=?",new String[]{bridge});db.setTransactionSuccessful();}finally{db.endTransaction();}}
     public synchronized void bridgeSave(JSONObject r,String expectedRevision)throws JSONException{JSONObject current=find(r.optString("id"));if(current!=null&&!current.optString("revision").equals(expectedRevision))throw new JSONException("事项正在其他页面编辑，已保留本地修改，请稍后再同步");save(r);}
     public synchronized void bridgeConflict(JSONObject r)throws JSONException{conflictCopy(r);}
-    public static JSONObject make(String kind,String title) throws JSONException {if(kind.equals("note")&&title.trim().isEmpty())title=java.time.LocalDate.now().toString();
+    public static JSONObject make(String kind,String title) throws JSONException {if(kind.equals("course"))kind="event";if(kind.equals("note")&&title.trim().isEmpty())title=java.time.LocalDate.now().toString();
         return new JSONObject().put("id",UUID.randomUUID().toString()).put("kind",kind).put("title",title)
             .put("content","").put("start_at","").put("end_at","").put("time_hint","")
             .put("completed","").put("deleted",false).put("revision",UUID.randomUUID().toString())
@@ -80,7 +80,7 @@ public final class Data extends SQLiteOpenHelper {
         if(!r.optString("type_id").isEmpty())UUID.fromString(r.getString("type_id"));
     }
     public synchronized int importNew(JSONArray rows)throws Exception{return importNew(rows,"");}
-    public synchronized int importNew(JSONArray rows,String source)throws Exception{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);validate(r);if(!r.optString("kind").equals("course"))throw new Exception("只能批量创建课程");}SQLiteDatabase db=getWritableDatabase();int added=0;JSONArray imported=new JSONArray();db.beginTransaction();batchWrite=true;try{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);if(find(r.getString("id"))!=null)continue;save(r);imported.put(new JSONObject().put("id",r.getString("id")).put("revision",r.getString("revision")));added++;}if(added>0&&!source.isEmpty())UndoHistory.recordCourses(context,imported,source);db.setTransactionSuccessful();}finally{batchWrite=false;db.endTransaction();}if(added>0)SyncJob.request(context);return added;}
+    public synchronized int importNew(JSONArray rows,String source)throws Exception{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);validate(r);if(!Arrays.asList("event","task","course").contains(r.optString("kind")))throw new Exception("只能批量创建日程或待办");}SQLiteDatabase db=getWritableDatabase();int added=0;JSONArray imported=new JSONArray();db.beginTransaction();batchWrite=true;try{for(int i=0;i<rows.length();i++){JSONObject r=rows.getJSONObject(i);if(find(r.getString("id"))!=null)continue;save(r);imported.put(new JSONObject().put("id",r.getString("id")).put("revision",r.getString("revision")));added++;}if(added>0&&!source.isEmpty())UndoHistory.recordCourses(context,imported,source);db.setTransactionSuccessful();}finally{batchWrite=false;db.endTransaction();}if(added>0)SyncJob.request(context);return added;}
     public synchronized int inboxCount(){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM records WHERE deleted=0 AND kind='inbox'",null)){return c.moveToFirst()?c.getInt(0):0;}}
     public synchronized JSONObject find(String id)throws JSONException{return readObject("records","id=?",new String[]{id});}
     private JSONObject readObject(String table,String where,String[] args)throws JSONException{StringBuilder body=new StringBuilder();appendBody(table,where,args,body);return body.length()==0?null:new JSONObject(body.toString());}
@@ -127,7 +127,7 @@ public final class Data extends SQLiteOpenHelper {
     synchronized void undoCourses(JSONArray rows)throws Exception{
         for(int i=0;i<rows.length();i++){
             JSONObject row=rows.getJSONObject(i),current=find(row.getString("id"));
-            if(current==null||current.optBoolean("deleted")||!row.getString("revision").equals(current.optString("revision")))throw new IOException("导入的课程已被编辑或同步更新，未覆盖后续修改");
+            if(current==null||current.optBoolean("deleted")||!row.getString("revision").equals(current.optString("revision")))throw new IOException("导入的日程已被编辑或同步更新，未覆盖后续修改");
         }
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();batchWrite=true;
         try{for(int i=0;i<rows.length();i++)save(find(rows.getJSONObject(i).getString("id")).put("deleted",true).put("_undo_skip",true));db.setTransactionSuccessful();}
@@ -184,7 +184,7 @@ public final class Data extends SQLiteOpenHelper {
     public synchronized JSONArray list(String kind,int limit) throws JSONException {
         JSONArray rows=new JSONArray();String sql="SELECT preview AS body FROM records WHERE deleted=0";
         String[] args=null;
-        if(kind!=null){sql+=" AND kind=?";args=new String[]{kind};}
+        if("event".equals(kind))sql+=" AND kind IN ('event','course')";else if(kind!=null){sql+=" AND kind=?";args=new String[]{kind};}
         sql+=("note".equals(kind)||"inbox".equals(kind)?" ORDER BY updated_at DESC":" ORDER BY CASE WHEN start_at='' THEN 1 ELSE 0 END,start_at,title")+" LIMIT "+Math.min(500,limit);
         try(Cursor c=getReadableDatabase().rawQuery(sql,args)){while(c.moveToNext())rows.put(new JSONObject(c.getString(0)));}
         return rows;
@@ -206,7 +206,7 @@ public final class Data extends SQLiteOpenHelper {
     public synchronized JSONArray business(String query,String kind,int offset)throws JSONException{
         String pattern="%"+query.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
         String sql="SELECT preview AS body FROM records WHERE deleted=0 AND kind<>'type' AND (title LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\' OR type_id IN (SELECT id FROM records WHERE kind='type' AND title LIKE ? ESCAPE '\\'))";
-        List<String> args=new ArrayList<>(Arrays.asList(pattern,pattern,pattern));if(kind!=null){sql+=" AND kind=?";args.add(kind);}sql+=" ORDER BY updated_at DESC LIMIT 60 OFFSET "+Math.max(0,offset);
+        List<String> args=new ArrayList<>(Arrays.asList(pattern,pattern,pattern));if("event".equals(kind))sql+=" AND kind IN ('event','course')";else if(kind!=null){sql+=" AND kind=?";args.add(kind);}sql+=" ORDER BY updated_at DESC LIMIT 60 OFFSET "+Math.max(0,offset);
         JSONArray result=new JSONArray();try(Cursor c=getReadableDatabase().rawQuery(sql,args.toArray(new String[0]))){while(c.moveToNext())result.put(new JSONObject(c.getString(0)));}return result;
     }
     public synchronized JSONArray related(String column,String id)throws JSONException{

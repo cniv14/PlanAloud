@@ -47,10 +47,10 @@ public final class AgendaWidget extends AppWidgetProvider {
                 boolean grid="grid".equals(prefs(c).getString("widget_layout","list"))&&manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,240)>=205;
                 int container=grid?R.id.widget_grid:R.id.widget_list;
                 RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget_agenda);
-                v.setInt(R.id.widget_root,"setBackgroundResource",background==null?(dark?R.drawable.widget_solid_dark:R.drawable.widget_solid):android.R.color.transparent);
+                v.setInt(R.id.widget_root,"setBackgroundResource",background==null?(dark?R.drawable.widget_solid_dark:R.drawable.widget_solid):R.drawable.widget_container_clip);
                 v.setViewVisibility(R.id.widget_background_image,background==null?View.GONE:View.VISIBLE);if(background!=null)WidgetImages.set(v,R.id.widget_background_image,background);
                 v.setViewVisibility(R.id.widget_list,grid?View.GONE:View.VISIBLE);v.setViewVisibility(R.id.widget_grid,grid?View.VISIBLE:View.GONE);
-                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/animated-styles4/"+(grid?"grid":"list")));
+                Intent adapter=new Intent(c,AgendaCollection.class).setData(Uri.parse("planaloud://widget/rows/"+id+"/native-edges5/"+(grid?"grid":"list")));
                 v.setRemoteAdapter(container,adapter);v.setEmptyView(container,R.id.widget_empty);
                 Intent tap=new Intent(c,WidgetActions.class).setData(Uri.parse("planaloud://widget/action/"+id)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 v.setPendingIntentTemplate(container,PendingIntent.getBroadcast(c,id,tap,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_MUTABLE));
@@ -73,9 +73,9 @@ public final class AgendaWidget extends AppWidgetProvider {
         Canvas canvas=new Canvas(out);
         Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
         RectF area=new RectF(0,0,w,h);
-        Path clip=new Path();
-        clip.addRoundRect(area,17,17,Path.Direction.CW);
-        canvas.clipPath(clip);
+        if(android.os.Build.VERSION.SDK_INT<31){
+            Path clip=new Path();clip.addRoundRect(area,17,17,Path.Direction.CW);canvas.clipPath(clip);
+        }
 
         if(source!=null){
             float scale=Math.max((float)w/source.getWidth(),(float)h/source.getHeight());
@@ -94,11 +94,6 @@ public final class AgendaWidget extends AppWidgetProvider {
         canvas.drawRect(area,paint);
         paint.setShader(null);
 
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(2);
-        paint.setShader(new LinearGradient(0,0,w,h,dark?0x8ad9f2ff:0xcaffffff,
-                LiquidGlass.tint(accent,112),Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(1,1,w-1,h-1,17,17,paint);
         return out;
     }
 }

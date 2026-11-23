@@ -12,7 +12,7 @@ public final class PlanTime {
         String label;
         if(r.optString("start_at").isEmpty()){label=r.optString("due_date").isEmpty()?r.optString("time_hint"):"截止 "+PlanningFields.deadlineLabel(r);if(label.isEmpty())label="时间待定";}
         else {LocalDateTime start=start(r);label=r.optBoolean("all_day")?"全天":start.format(java.time.format.DateTimeFormatter.ofPattern(start.toLocalDate().equals(day)?"HH:mm":"M/d HH:mm"));if(!r.optBoolean("all_day")&&!r.optString("end_at").isEmpty()){LocalDateTime end=LocalDateTime.parse(r.optString("end_at"));label+=" – "+end.format(java.time.format.DateTimeFormatter.ofPattern(end.toLocalDate().equals(day)?"HH:mm":"M/d HH:mm"));}}
-        return ("project".equals(r.optString("kind"))?"长任务 · ":"course".equals(r.optString("kind"))?"课程 · ":"")+label;
+        return ("project".equals(r.optString("kind"))?"长任务 · ":"")+label;
     }
     static boolean active(JSONObject r){
         return r.optString("completed").isEmpty()&&!cancelled(r);

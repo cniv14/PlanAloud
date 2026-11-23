@@ -12,7 +12,7 @@ final class UndoHistory {
  }
  static synchronized void recordCourses(Context c,JSONArray rows,String source)throws Exception{
   String key=UUID.randomUUID().toString();write(new AtomicFile(snapshot(c,key)),rows.toString());
-  JSONArray list=entries(c),next=new JSONArray();next.put(new JSONObject().put("key",key).put("batch_courses",true).put("title","导入 "+rows.length()+" 次课程").put("source",source).put("time",java.time.Instant.now().toString()));
+  JSONArray list=entries(c),next=new JSONArray();next.put(new JSONObject().put("key",key).put("batch_courses",true).put("title","导入 "+rows.length()+" 项日程").put("source",source).put("time",java.time.Instant.now().toString()));
   for(int i=0;i<Math.min(29,list.length());i++)next.put(list.get(i));write(index(c),next.toString());for(int i=29;i<list.length();i++)snapshot(c,list.getJSONObject(i).getString("key")).delete();
  }
  static synchronized void forget(Context c,String id)throws Exception{
@@ -43,7 +43,7 @@ final class UndoHistory {
   if(entry.optBoolean("batch_courses")){
    db.undoCourses(new JSONArray(raw));
    synchronized(UndoHistory.class){JSONArray fresh=entries(c),next=new JSONArray();for(int i=0;i<fresh.length();i++)if(!key.equals(fresh.getJSONObject(i).optString("key")))next.put(fresh.get(i));write(index(c),next.toString());snapshot(c,key).delete();}
-   AgendaWidget.refresh(c);ReminderReceiver.refresh(c);return "已撤销整次课程导入";
+   AgendaWidget.refresh(c);ReminderReceiver.refresh(c);return "已撤销整次日程导入";
   }
   String beforeRevision="",restoredRevision="";
   synchronized(db){JSONObject current=db.find(entry.getString("id"));if(current==null||!entry.getString("revision").equals(current.optString("revision")))throw new IOException("事项已被编辑或同步更新，未覆盖后续修改");JSONObject before="null".equals(raw)?new JSONObject(current.toString()).put("deleted",true):new JSONObject(raw);beforeRevision=before.optString("revision");db.save(before.put("_undo_skip",true));restoredRevision=before.optString("revision");}

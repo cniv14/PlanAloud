@@ -51,9 +51,9 @@ final class DayCommands {
         add("agenda.today","查看某天待办","{}",false,true,(c,a,x)->page(Data.get(c).dayTasks(date(a)),a));
         add("agenda.week","查看未来七天安排与天气","{}",false,true,(c,a,x)->week(c,date(a)));
         add("agenda.deadlines","查看当天截止事项","{}",false,true,(c,a,x)->page(Data.get(c).deadlines(date(a)),a));
-        add("record.search","搜索待办、笔记、课程、收集箱等","{\"query\":\"课程\"}",false,true,(c,a,x)->page(Data.get(c).business(a.optString("query"),a.optString("kind",null),offset(a)),a,true));
+        add("record.search","搜索待办、日程、笔记、收集箱等","{\"query\":\"课程\"}",false,true,(c,a,x)->page(Data.get(c).business(a.optString("query"),a.optString("kind",null),offset(a)),a,true));
         add("record.get","按 ID 读取事项及版本","{\"id\":\"\"}",false,true,(c,a,x)->summary(resolve(c,a)));
-        add("record.create","创建任务、日程、笔记、课程、长任务或收集条目","{\"kind\":\"task\",\"title\":\"阅读\",\"estimate_minutes\":25,\"priority\":\"high\"}",false,true,DayCommands::create);
+        add("record.create","创建任务、日程、笔记、长任务或收集条目","{\"kind\":\"task\",\"title\":\"阅读\",\"estimate_minutes\":25,\"priority\":\"high\"}",false,true,DayCommands::create);
         add("record.update","按 ID 与版本修改事项（可清空可选字段）","{\"id\":\"\",\"revision\":\"\",\"changes\":{\"due_date\":null}}",false,true,(c,a,x)->mutate(c,a,x,"update"));
         add("record.complete","完成或恢复待办","{\"id\":\"\",\"revision\":\"\",\"completed\":true}",false,true,(c,a,x)->mutate(c,a,x,"complete"));
         add("record.delete","软删除事项，可撤销","{\"id\":\"\",\"revision\":\"\"}",true,true,(c,a,x)->mutate(c,a,x,"delete"));
@@ -74,10 +74,7 @@ final class DayCommands {
         add("assistant.approve","批准或拒绝终端 AI 的待批准操作","{\"token\":\"\",\"approved\":true}",false,false,(c,a,x)->AssistantPlugin.commandApprove(c,a));
         add("backup.import","导入终端已上传的 .dayflow 备份","{\"file\":\"\"}",true,false,(c,a,x)->{try(InputStream in=new FileInputStream(upload(c,a))){return msg(Data.get(c).importStream(in));}});
         add("notes.import","导入 Markdown 文本或终端上传的 .md 文件","{\"title\":\"新笔记\",\"content\":\"# 标题\"}",false,true,(c,a,x)->{JSONObject value=new JSONObject(a.toString()).put("kind","note");if(a.has("file")&&x.ai)throw new IOException("AI 无法读取终端上传文件");if(a.has("file"))try(InputStream in=new FileInputStream(upload(c,a))){value.put("content",MarkdownFiles.read(in));}return create(c,value,x);});
-        add("calendar.import","导入 CSV、ICS 或 HTML 课表","{\"format\":\"csv\",\"content\":\"\"}",true,true,DayCommands::calendarImport);
-        add("course.stage","生成待批准的课程草稿","{\"courses\":[],\"config\":{}}",false,true,(c,a,x)->TimetableCapture.commandStage(c,a));
-        add("course.confirm","核对并导入课程草稿","{\"revision\":\"\"}",true,true,(c,a,x)->TimetableCapture.commandConfirm(c,a));
-        add("course.draft","查看当前课程草稿","{}",false,true,(c,a,x)->TimetableCapture.commandDraft(c));
+        add("calendar.import","导入 CSV、ICS 或 HTML 日程","{\"format\":\"csv\",\"content\":\"\"}",true,true,DayCommands::calendarImport);
         add("project.checkin","为长任务打卡","{\"id\":\"\",\"content\":\"\"}",false,true,DayCommands::checkin);
         add("focus.start","启动专注计时","{\"minutes\":25}",false,true,(c,a,x)->FocusTimer.command(c,"start",a));
         add("focus.status","查看专注计时","{}",false,true,(c,a,x)->FocusTimer.command(c,"status",a));
@@ -107,7 +104,6 @@ final class DayCommands {
             String token=UUID.randomUUID().toString();
             String detail="";
             if(args.has("id")&&(id.startsWith("record.")||id.equals("inbox.confirm"))){JSONObject r=resolve(c,args);detail=r.optString("title")+" · "+PlanTime.label(r);}
-            if(id.equals("course.confirm")){JSONObject draft=TimetableCapture.commandDraft(c);if(!draft.getString("revision").equals(args.getString("revision")))throw new IOException("课表草稿已变化");JSONArray items=draft.getJSONArray("items");StringBuilder rows=new StringBuilder(draft.optString("term")+" · "+items.length()+" 门课程");for(int n=0;n<Math.min(6,items.length());n++)rows.append('\n').append(items.getJSONObject(n).optString("title"));detail=rows.toString();}
             if(id.equals("screen.open"))detail=args.optString("page");
             if(id.equals("settings.set"))detail=args.optString("key")+" → "+args.optString("value");
             String message=e.help+(detail.isEmpty()?"":"\n"+detail);
@@ -156,12 +152,12 @@ final class DayCommands {
         if(r.optBoolean("reminder"))PlanOptions.offsets(r);Data.validate(r);
     }
     private static JSONObject create(Context c,JSONObject a,Access x)throws Exception{
-        String wanted=a.optString("kind","task"),kind=wanted;if(x.review&&!kind.equals("inbox"))kind="inbox";
+        String wanted=a.optString("kind","task"),kind=wanted.equals("course")?"event":wanted;if(x.review&&!kind.equals("inbox"))kind="inbox";
         if(!Arrays.asList("task","event","course","project","note","inbox","type").contains(kind))throw new IOException("未知事项类型");
         if(a.has("file")&&x.ai)throw new IOException("AI 无法读取终端上传文件");
         JSONObject r=Data.make(kind,a.getString("title"));patch(r,a,false);
         if(kind.equals("note"))r.put("content_format","markdown");
-        if(kind.equals("inbox"))r.put("confirmation_status","pending").put("proposed_kind",Arrays.asList("task","event","course","project").contains(wanted)?wanted:"task");
+        if(kind.equals("inbox"))r.put("confirmation_status","pending").put("proposed_kind",Arrays.asList("task","event","course","project").contains(wanted)?(wanted.equals("course")?"event":wanted):"task");
         Data.get(c).save(r.put("_undo_record",true).put("_undo_source",x.source));changed(c);return summary(r).put("created",true);
     }
     private static JSONObject mutate(Context c,JSONObject a,Access x,String op)throws Exception{
@@ -170,7 +166,7 @@ final class DayCommands {
             if(op.equals("complete")){if(!Arrays.asList("task","event","course","project").contains(r.optString("kind")))throw new IOException("此事项不能标记完成");if(r.optString("completed").isEmpty()==a.getBoolean("completed")){TaskActions.complete(c,r);r=resolve(c,a);}}
             else {if(op.equals("update"))patch(r,a.getJSONObject("changes"),true);
                 else if(op.equals("delete"))r.put("deleted",true);
-                else {if(!inbox)throw new IOException("只能批准收集箱候选");String kind=a.optString("kind",r.optString("proposed_kind","task"));if(!Arrays.asList("task","event","course","project").contains(kind))throw new IOException("无效的日程类型");r.put("kind",kind).put("confirmation_status","confirmed");patch(r,a.optJSONObject("changes")==null?new JSONObject():a.getJSONObject("changes"),true);}
+                else {if(!inbox)throw new IOException("只能批准收集箱候选");String kind=a.optString("kind",r.optString("proposed_kind","task"));if(!Arrays.asList("task","event","course","project").contains(kind))throw new IOException("无效的日程类型");r.put("kind",kind.equals("course")?"event":kind).put("confirmation_status","confirmed");patch(r,a.optJSONObject("changes")==null?new JSONObject():a.getJSONObject("changes"),true);}
                 db.save(r.put("_undo_record",true).put("_undo_source",x.source));}
             changed(c);return summary(r).put("changed",true);
         }
@@ -178,8 +174,8 @@ final class DayCommands {
     private static void changed(Context c){AgendaWidget.refresh(c);ReminderReceiver.refresh(c);}
     private static File upload(Context c,JSONObject a)throws Exception{return CommandProvider.staged(c,a.getString("file"));}
     private static JSONObject calendarImport(Context c,JSONObject a,Access x)throws Exception{
-        if(x.review)throw new IOException("资料整理请用 course.stage 生成草稿，再在聊天批准");String text=a.optString("content");if(a.has("file")){if(x.ai)throw new IOException("AI 无法读取终端上传文件");try(InputStream in=new FileInputStream(upload(c,a))){text=Network.read(in,4*1024*1024);}}
-        JSONArray items;switch(a.getString("format")){case "csv":items=Imports.timetable(text);break;case "ics":items=Imports.ics(text);break;case "html":items=WebImports.html(text);break;default:throw new IOException("格式需为 csv、ics 或 html");}
+        if(x.review)throw new IOException("资料整理请用 capture 生成待核验日程，再在聊天批准");String text=a.optString("content");if(a.has("file")){if(x.ai)throw new IOException("AI 无法读取终端上传文件");try(InputStream in=new FileInputStream(upload(c,a))){text=Network.read(in,4*1024*1024);}}
+        JSONArray items;switch(a.getString("format")){case "csv":items=Imports.schedule(text);break;case "ics":items=Imports.ics(text);break;case "html":items=WebImports.html(text);break;default:throw new IOException("格式需为 csv、ics 或 html");}
         Data db=Data.get(c);int count=0;for(int i=0;i<items.length();i++)Data.validate(items.getJSONObject(i));synchronized(db){for(int i=0;i<items.length();i++){JSONObject r=items.getJSONObject(i);if(db.find(r.getString("id"))!=null)continue;db.save(r.put("_undo_record",true).put("_undo_source",x.source));count++;}}changed(c);return new JSONObject().put("imported",count);
     }
     private static JSONObject checkin(Context c,JSONObject a,Access x)throws Exception{if(x.review)throw new IOException("资料整理会话不能打卡");LocalDate day=date(a);if(day.isAfter(LocalDate.now()))throw new IOException("不能为未来日期打卡");Data db=Data.get(c);synchronized(db){JSONObject p=resolve(c,a);if(!p.optString("kind").equals("project"))throw new IOException("请指定长任务");String id=CheckIns.id(p.getString("id"),day);JSONObject r=db.find(id);if(r==null)r=Data.make("note",p.optString("title")+" · "+day+" 打卡");r.put("id",id).put("deleted",false).put("parent_id",p.getString("id")).put("checkin_for",p.getString("id")).put("checkin_date",day.toString()).put("content_format","markdown").put("content",a.optString("content"));Data.validate(r);db.save(r.put("_undo_record",true).put("_undo_source",x.source));return summary(r);}}

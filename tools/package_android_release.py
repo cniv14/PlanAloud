@@ -80,7 +80,7 @@ def main():
                 'https://github.com/cniv14/PlanAloud/releases/download/v' + args.version,
                 payload['version'], payload['version_code'], windows=output / 'PlanAloud-windows.zip')
     shutil.copyfile(root / 'docs' / ('Android-' + args.version + '.md'), output / 'Testing.md')
-    shutil.copyfile(root / 'examples/课表模板.csv', output / 'timetable-template.csv')
+    shutil.copyfile(root / 'examples/日程模板.csv', output / 'schedule-template.csv')
     api_doc = root / 'docs/客户端同步API.md'
     if api_doc.exists():
         shutil.copyfile(api_doc, output / 'ClientSyncAPI.md')
@@ -119,7 +119,7 @@ def main():
             parser.error('Formula renderer source must accompany APK. Run tools/fetch_math_source.py or pass --math-source.')
         shutil.copyfile(source, output/'MathRenderer-source.zip')
     names = ('PlanAloud-android.apk', 'PlanAloud-windows.zip', 'PlanAloud-server.zip',
-             'android-update.json', 'windows-update.json', 'Testing.md', 'timetable-template.csv')
+             'android-update.json', 'windows-update.json', 'Testing.md', 'schedule-template.csv')
     checks = []
     for name in sorted(names + tuple(plugin_names) + (('ClientSyncAPI.md',) if api_doc.exists() else ()) + (('TaskFlowProtocol.md',) if taskflow_doc.exists() else ()) + (('MathRenderer-source.zip',) if math_included else ())):
         file = output / name

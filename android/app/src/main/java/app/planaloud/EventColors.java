@@ -16,6 +16,16 @@ final class EventColors {
     static void contrast(android.view.View view,JSONObject r){contrastColor(view,ink(view.getContext(),r));}
     private static void contrastColor(android.view.View view,int color){if(view instanceof android.widget.TextView text&&text.getCurrentTextColor()!=color)text.setTextColor(color);if(view instanceof android.widget.CompoundButton button){android.content.res.ColorStateList tint=button.getButtonTintList();if(tint==null||tint.getDefaultColor()!=color)button.setButtonTintList(android.content.res.ColorStateList.valueOf(color));}if(view instanceof android.view.ViewGroup group)for(int i=0;i<group.getChildCount();i++)contrastColor(group.getChildAt(i),color);}
     static android.graphics.drawable.Drawable shape(Context c,JSONObject r,float radius){return CardFinish.background(c,r,radius);}
-    static Bitmap widget(Context c,JSONObject r,boolean twoDay){return widget(c,r,.5f,300,110);}
-    static Bitmap widget(Context c,JSONObject r,float phase,int width,int height){Bitmap image=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);image.setDensity(Bitmap.DENSITY_NONE);Canvas canvas=new Canvas(image);canvas.scale(width/300f,height/110f);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);int base=lightFill(r);p.setColor(fill(c,r));RectF area=new RectF(1,1,299,109);canvas.drawRoundRect(area,12,12,p);CardBackgrounds.paint(c,canvas,area,12,r,phase,true,null,fill(c,r));CardFinish.texture(canvas,area,12,CardFinish.mode(c,r),base,phase);return image;}
+    static Bitmap widget(Context c,JSONObject r,float phase,int width,int height){
+        Bitmap image=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);image.setDensity(Bitmap.DENSITY_NONE);
+        Canvas canvas=new Canvas(image);canvas.scale(width/300f,height/110f);
+        Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);paint.setColor(fill(c,r));
+        RectF area=new RectF(0,0,300,110);
+        // XML clipToOutline is available from API 31; older launcher rows need a rounded bitmap.
+        float radius=android.os.Build.VERSION.SDK_INT>=31?0:12;
+        canvas.drawRoundRect(area,radius,radius,paint);
+        CardBackgrounds.paint(c,canvas,area,radius,r,phase,true,null,fill(c,r));
+        CardFinish.texture(canvas,area,radius,CardFinish.mode(c,r),lightFill(r),phase);
+        return image;
+    }
 }

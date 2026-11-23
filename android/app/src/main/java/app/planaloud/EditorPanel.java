@@ -14,10 +14,10 @@ public final class EditorPanel {
     private final TextInputEditText title,content,location,hint;private final PlanningFields planning;
     private final MaterialSwitch scheduled,reminder;private final Spinner repeat;
     private Spinner timeMode,reminderMode;private TextInputEditText duration,offsets;private PlanOptions options;private LocalDateTime start,end;private String kind;private LinearLayout scheduleGroup;
-    public EditorPanel(MainActivity activity,JSONObject record){a=activity;source=record;kind=record.optString("kind","event");if(kind.equals("inbox")){String proposed=record.optString("proposed_kind","event");kind=java.util.Arrays.asList("event","task","project","course").contains(proposed)?proposed:"event";}
+    public EditorPanel(MainActivity activity,JSONObject record){a=activity;source=record;kind=record.optString("kind","event");if(kind.equals("course"))kind="event";if(kind.equals("inbox")){String proposed=record.optString("proposed_kind","event");kind=java.util.Arrays.asList("event","task","project").contains(proposed)?proposed:"event";}
         LinearLayout form=a.fullPage("inbox".equals(kind)?"确认这条通知":"编辑事项",a::home);
         title=Ui.field(a,form,"标题",record.optString("title"),false);title.setId(R.id.editor_title);
-        ChipGroup types=new ChipGroup(a);types.setSingleSelection(true);types.setSelectionRequired(true);String[] names={"日程","待办","笔记","课程","长任务"},values={"event","task","note","course","project"};
+        ChipGroup types=new ChipGroup(a);types.setSingleSelection(true);types.setSelectionRequired(true);String[] names={"日程","待办","笔记","长任务"},values={"event","task","note","project"};
         for(int i=0;i<names.length;i++){String value=values[i];Chip chip=new Chip(a);chip.setText(names[i]);chip.setCheckable(true);chip.setChecked(value.equals(kind)||("inbox".equals(kind)&&i==0));chip.setOnClickListener(v->{if("note".equals(value)){try{a.edit(draft().put("kind","note"));}catch(JSONException e){a.message(e.getMessage());}return;}kind=value;if(scheduleGroup!=null)scheduleGroup.setVisibility(kind.equals("note")?View.GONE:View.VISIBLE);});types.addView(chip);}if(kind.equals("inbox"))kind="event";form.addView(types);
         planning=new PlanningFields(a,form,record);
         content=Ui.field(a,form,"正文 / 备注",record.optString("content"),true);scheduleGroup=Ui.column(a);form.addView(scheduleGroup);

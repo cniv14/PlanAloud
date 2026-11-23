@@ -17,8 +17,6 @@ final class InboxReview {
                 Ui.cell(a,actions,Ui.button(a,"批准",true,()->decide(a,command,true)));
                 Ui.cell(a,actions,Ui.button(a,"拒绝",false,()->decide(a,command,false)));
             }
-            if(TimetableCapture.hasDraft(a))
-                page.addView(Ui.button(a,"核对待导入课表",false,()->new TimetableCapture(a,null)));
             JSONArray records=Data.get(a).list("inbox",500);
             int count=0;
             for(int i=0;i<records.length()&&count<50;i++){
@@ -27,7 +25,7 @@ final class InboxReview {
                 page.addView(Ui.button(a,record.optString("title"),false,()->a.detail(record)));
                 count++;
             }
-            if(commands.length()==0&&count==0&&!TimetableCapture.hasDraft(a))
+            if(commands.length()==0&&count==0)
                 page.addView(Ui.help(a,"暂无待批准事项"));
         }catch(Exception e){a.message(e.getMessage());}
     }

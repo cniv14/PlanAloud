@@ -23,9 +23,10 @@ public final class SmokeTest extends Instrumentation {
         JSONObject copy=db.find(task.getString("id"));copy.put("deleted",true);db.save(copy);check(db.find(task.getString("id")).getBoolean("deleted"),"tombstone");
         Secrets.put(getTargetContext(),"test_secret","test-only-value");check(Secrets.get(getTargetContext(),"test_secret").equals("test-only-value"),"Keystore roundtrip");
         check(!db.exportFile().toString().contains("test-only-value"),"secrets excluded from export");
-        String csv="title,weekday,start_time,end_time,start_date,end_date,weeks,location\n高等数学,1,08:00,09:35,2026-10-19,2026-11-15,odd,教学楼 A201\n";
-        JSONArray courses=Imports.timetable(csv);check(courses.length()==2,"odd-week timetable");check(courses.getJSONObject(1).getString("start_at").startsWith("2026-11-02"),"week arithmetic");
-        check(Imports.timetable(csv).getJSONObject(0).getString("id").equals(courses.getJSONObject(0).getString("id")),"stable course ids");
+        String csv="title,start_at,end_at,location\n高等数学,2026-11-23T08:00,2026-11-23T09:35,教学楼 A201\n";
+        JSONArray courses=Imports.schedule(csv);check(courses.length()==1,"date-based schedule");
+        check(courses.getJSONObject(0).getString("kind").equals("event"),"imports ordinary events");
+        check(Imports.schedule(csv).getJSONObject(0).getString("id").equals(courses.getJSONObject(0).getString("id")),"stable schedule ids");
         String ics="BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:demo\nSUMMARY:每周阅读\nDTSTART:20261020T160000\nDTEND:20261020T170000\nRRULE:FREQ=WEEKLY;COUNT=3\nEND:VEVENT\nEND:VCALENDAR";
         check(Imports.ics(ics).length()==3,"weekly ICS expansion");
         int resource=getContext().getResources().getIdentifier("update_test","raw",getContext().getPackageName());String envelope;
@@ -90,33 +91,8 @@ public final class SmokeTest extends Instrumentation {
         check(deleted.optBoolean("changed")&&!deleted.has("approval_token")&&db.find(first.getString("id")).optBoolean("deleted"),"explicit AI delete needs no second approval");
         UndoHistory.latestAssistant(c);
         check(!db.find(first.getString("id")).optBoolean("deleted"),"direct delete remains undoable");
-        timetableChecks(c);
 
-    }
-    private void timetableChecks(android.content.Context c)throws Exception{
-        Data db=Data.get(c);
-        String title="课表回归-"+java.util.UUID.randomUUID();
-        JSONArray courses=new JSONArray().put(new JSONObject().put("title",title).put("weekday",1).put("start_period","第一节").put("end_period","第二节").put("weeks","1-40"));
-        JSONObject config=new JSONObject().put("term","2026-11-16").put("weeks","40").put("periods","第一节 8:00至8:45\n第二节 8:55至9:40");
-        TimetableCapture.stage(c,courses,config);
-        JSONObject staged=TimetableCapture.stageResult(c);
-        check(staged.optBoolean("ready_to_import")&&staged.optInt("occurrences")==40,"Chinese period mapping validates all occurrences");
-        check(staged.getJSONObject("draft").getJSONArray("items").getJSONObject(0).getString("title").equals(title),"tool result retains complete draft");
-        JSONObject imported=TimetableCapture.commandConfirm(c,new JSONObject().put("revision",staged.getString("revision")));
-        check(imported.getInt("imported")==40&&imported.optBoolean("undo_available"),"whole course import is undoable");
-        JSONArray matches=db.business(title,"course",0);
-        check(matches.length()>0&&matches.getJSONObject(0).getString("start_at").endsWith("08:00")&&matches.getJSONObject(0).getString("end_at").endsWith("09:40"),"preview and imported times agree");
-        UndoHistory.latestAssistant(c);
-        check(db.find(matches.getJSONObject(0).getString("id")).optBoolean("deleted"),"batch undo removes imported courses");
-        JSONArray chain=new JSONArray().put(Data.make("course",title+" chain").put("start_at","2026-11-16T11:00"));
-        db.importNew(chain,"agent:test");JSONObject edited=db.find(chain.getJSONObject(0).getString("id"));
-        db.save(edited.put("title","AI改名").put("_undo_record",true).put("_undo_source","agent:test"));
-        UndoHistory.latestAssistant(c);UndoHistory.latestAssistant(c);
-        check(db.find(edited.getString("id")).optBoolean("deleted"),"undoing an AI edit allows undoing its prior batch import");
-        JSONArray rows=new JSONArray();for(int i=0;i<2;i++)rows.put(Data.make("course",title+" conflict "+i).put("start_at","2026-11-16T10:00"));
-        db.importNew(rows,"agent:test");JSONObject changed=db.find(rows.getJSONObject(0).getString("id"));db.save(changed.put("title","后续编辑"));
-        boolean blocked=false;try{UndoHistory.latestAssistant(c);}catch(java.io.IOException expected){blocked=true;}
-        check(blocked&&!db.find(rows.getJSONObject(1).getString("id")).optBoolean("deleted"),"batch undo validates all revisions before changing any course");
+
     }
     private static final int RESULT_OK=-1,RESULT_CANCELED=0;
 }

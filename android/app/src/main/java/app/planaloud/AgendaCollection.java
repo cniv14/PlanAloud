@@ -22,7 +22,7 @@ public final class AgendaCollection extends RemoteViewsService {
             JSONObject r=rows.optJSONObject(n);if(r==null)return null;boolean dark=AgendaWidget.dark(c);
             RemoteViews v=new RemoteViews(c.getPackageName(),detailed?R.layout.widget_item_detailed:R.layout.widget_item);
             java.time.LocalDateTime now=java.time.LocalDateTime.now();
-            WidgetCardStyle.apply(c,v,r,false);
+            WidgetCardStyle.apply(c,v,r);
             v.setViewVisibility(R.id.widget_priority_pattern,PriorityPattern.present(r)?android.view.View.VISIBLE:android.view.View.GONE);if(PriorityPattern.present(r)){WidgetImages.set(v,R.id.widget_priority_pattern,PriorityPattern.bitmap(r));v.setContentDescription(R.id.widget_priority_pattern,PriorityPattern.label(r));}v.setTextViewText(R.id.widget_item_title,r.optString("title"));
             String meta=DayAgenda.meta(r,now.toLocalDate());
             v.setTextViewText(R.id.widget_item_meta,meta);
