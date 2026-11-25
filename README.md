@@ -6,7 +6,7 @@
 
 **不注册、不联网、不部署服务器，也能使用本地核心功能。** AI、天气、同步和更新检查均为可选联网能力。
 
-**Android 1.5.2： [正式 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.2/PlanAloud-android.apk)** · [正式发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.2) · [独立 Debug 发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.2-debug) · [使用说明](docs/Android-1.5.2.md)
+**Android 1.5.10： [正式 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.10/PlanAloud-android.apk)** · [正式发布](https://github.com/cniv14/PlanAloud/releases/tag/v1.5.10) · [版本说明](docs/Android-1.5.10.md)
 
 1.5.2 使用新的正式签名，不能覆盖旧版安装，请先导出备份。修复底栏高亮、闪烁和左右滑动，新增可跳过的首次使用引导；移除本地语音，默认 DeepSeek ASR。正式包进行代码和资源裁剪，Debug 包单独发布。
 

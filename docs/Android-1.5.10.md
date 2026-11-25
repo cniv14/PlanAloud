@@ -10,7 +10,7 @@
 
 版本代码 160，版本名称 1.5.10。
 
-签名：构建环境尚未恢复原正式签名。未签名 Release 构建只能用于后续签名，不可直接安装；Debug 包仅用于开发验证，不能覆盖现有正式版。正式发布和自动更新清单须在恢复原证书后生成。
+正式 APK 沿用 1.5.9 的签名证书，可覆盖安装。[下载正式 APK](https://github.com/cniv14/PlanAloud/releases/download/v1.5.10/PlanAloud-android.apk)
 
 验证：Debug 和未签名 Release 构建、Android Lint（0 错误）、仪器测试源码编译、7 项针对性回归均通过。回归覆盖 Android 12 的原生裁切、Android 9 的位图圆角像素、双日组件固定样式、日期式 CSV 去重、旧课程与提醒保留、每周重复及旧命令移除。未进行实体手机复测。
 
